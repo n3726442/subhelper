@@ -208,12 +208,16 @@
         <!-- 雙角色模式切換膠囊 -->
         <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 w-full sm:w-auto justify-center">
           <button type="button" id="mode-sub-btn" onclick="setRoleMode('substitute')"
-            class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-blue-900 text-white shadow-sm">
+            class="flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-blue-900 text-white shadow-sm">
             代課老師整理版
           </button>
-          <button type="button" id="mode-leave-btn" onclick="setRoleMode('leave')"
-            class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900">
-            任課老師交接版
+          <button type="button" id="mode-homeroom-btn" onclick="setRoleMode('homeroom')"
+            class="flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900">
+            導師交接版
+          </button>
+          <button type="button" id="mode-subject-btn" onclick="setRoleMode('subject')"
+            class="flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900">
+            科任老師交接版
           </button>
         </div>
       </div>
@@ -379,94 +383,102 @@
         </div>
       </div>
 
-      <!-- 卡片 2：當日課表與應做事項（雙輸入模式＋片語快插＋Google文件式反白換色工具列） -->
+      <!-- 卡片 2：當日課表與應做事項（常駐課表圖片上傳＋常用科目下拉／手動＋片語快插＋反白換色） -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
           <h2 class="text-sm sm:text-base font-extrabold text-slate-800 flex items-center gap-2">
             <span class="w-2 h-5 rounded-full bg-blue-800 inline-block"></span>
             <span>當日課表與應做事項</span>
           </h2>
-
-          <!-- 課表雙模式切換 -->
-          <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
-            <button type="button" id="sched-mode-table" onclick="setScheduleInputMode('table')"
-              class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-blue-900 shadow-sm">
-              表格手動輸入
-            </button>
-            <button type="button" id="sched-mode-image" onclick="setScheduleInputMode('image')"
-              class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900">
-              上傳課表圖片
-            </button>
-          </div>
+          <span class="text-xs text-slate-500">捲動輸入各節時，課表圖片與快速輸入小幫手會自動固定在上方</span>
         </div>
 
-        <!-- 課表圖片上傳區塊（切換至圖片模式或已有圖片時顯示） -->
-        <div id="schedule-image-box" class="hidden rounded-xl border border-blue-200 bg-blue-50/40 p-3 space-y-2">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="text-xs font-bold text-blue-900">上傳課表照片／截圖（預設符合寬度，可上下滾動並放大檢視）：</span>
-            <div class="flex flex-wrap items-center gap-1.5">
-              <label class="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-800 hover:bg-blue-900 text-white cursor-pointer">
-                選擇課表圖片
-                <input type="file" accept="image/*" class="hidden" onchange="handleScheduleImageUpload(event)" />
-              </label>
-              <button type="button" id="btn-zoom-out-sched" onclick="changeScheduleImageZoom(-25)" class="hidden px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white border border-slate-300 hover:bg-slate-100" title="縮小圖片">
-                🔍－
-              </button>
-              <button type="button" id="btn-zoom-reset-sched" onclick="resetScheduleImageZoom()" class="hidden px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white border border-slate-300 hover:bg-slate-100" title="恢復符合寬度">
-                100% 寬
-              </button>
-              <button type="button" id="btn-zoom-in-sched" onclick="changeScheduleImageZoom(25)" class="hidden px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white border border-slate-300 hover:bg-slate-100" title="放大圖片">
-                🔍＋
-              </button>
-              <button type="button" id="btn-rot-sched" onclick="rotateScheduleImage()" class="hidden px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white border border-slate-300 hover:bg-slate-100">
-                旋轉90°
-              </button>
-              <button type="button" id="btn-del-sched" onclick="removeScheduleImage()" class="hidden px-2.5 py-1.5 rounded-lg text-xs font-bold bg-red-50 border border-red-200 text-red-600 hover:bg-red-100">
-                移除圖片
-              </button>
-            </div>
-          </div>
-          <div id="schedule-image-preview" class="hidden bg-white border border-slate-200 rounded-lg p-2 max-h-80 overflow-auto">
-            <img id="schedule-image-el" src="" style="width: 100%; max-width: none; height: auto;" class="block mx-auto rounded" />
-          </div>
-        </div>
+        <!-- 固定浮動對照與工具區（隨捲動吸頂，確保輸入任何一節都能隨時看課表、點片語與換色） -->
+        <div id="sticky-schedule-helper" class="sticky top-[92px] sm:top-[102px] z-20 space-y-2.5 bg-white/95 backdrop-blur-xs pt-1 pb-2.5 border-b border-slate-200 shadow-[0_6px_14px_-8px_rgba(15,23,42,0.18)]">
 
-        <!-- 快速輸入小幫手 ＋ 電腦版反白選取字體顏色工具列（手機版隱藏換色工具列） -->
-        <div class="rounded-xl bg-amber-50/80 border border-amber-200 p-3 space-y-2.5">
-          <!-- Google 文件式反白文字換色工具列（僅電腦版 lg 以上顯示） -->
-          <div class="hidden lg:flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-amber-200/80">
-            <span class="text-xs font-extrabold text-slate-800">🎨 反白文字設定顏色（如 Google 文件）：</span>
-            <div class="flex flex-wrap items-center gap-1.5">
-              <button type="button" onmousedown="event.preventDefault(); applyRichFormat('foreColor', '#000000')"
-                class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 text-black border border-slate-300 flex items-center gap-1 shadow-xs">
-                <span class="w-2.5 h-2.5 rounded-full bg-black inline-block"></span> 黑色(預設)
-              </button>
-              <button type="button" onmousedown="event.preventDefault(); applyRichFormat('foreColor', '#DC2626')"
-                class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white hover:bg-red-50 text-red-600 border border-red-300 flex items-center gap-1 shadow-xs">
-                <span class="w-2.5 h-2.5 rounded-full bg-red-600 inline-block"></span> 紅色重點
-              </button>
-              <button type="button" onmousedown="event.preventDefault(); applyRichFormat('foreColor', '#1D4ED8')"
-                class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white hover:bg-blue-50 text-blue-700 border border-blue-300 flex items-center gap-1 shadow-xs">
-                <span class="w-2.5 h-2.5 rounded-full bg-blue-700 inline-block"></span> 藍色標記
-              </button>
-              <button type="button" onmousedown="event.preventDefault(); applyRichFormat('bold')"
-                class="px-2.5 py-1 rounded-lg text-xs font-black bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 shadow-xs">
-                B 粗體
-              </button>
-              <button type="button" onmousedown="event.preventDefault(); applyRichFormat('removeFormat')"
-                class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300">
-                清除格式
-              </button>
+          <!-- 課表圖片上傳區塊（固定顯示於上方，支援縮放、上下捲動與收合展開） -->
+          <div id="schedule-image-box" class="rounded-xl border border-blue-200 bg-blue-50/60 p-2.5 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-1.5">
+              <span class="text-xs font-bold text-blue-900">📷 課表照片對照（固定於上方）：</span>
+              <div class="flex flex-wrap items-center gap-1">
+                <label class="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-800 hover:bg-blue-900 text-white cursor-pointer">
+                  選擇課表圖片
+                  <input type="file" accept="image/*" class="hidden" onchange="handleScheduleImageUpload(event)" />
+                </label>
+                <button type="button" id="btn-toggle-sched-collapse" onclick="toggleScheduleImageCollapse()" class="hidden px-2 py-1 rounded-lg text-xs font-bold bg-white border border-blue-300 text-blue-900 hover:bg-blue-50">
+                  收合課表
+                </button>
+                <button type="button" id="btn-zoom-out-sched" onclick="changeScheduleImageZoom(-25)" class="hidden px-2 py-1 rounded-lg text-xs font-bold bg-white border border-slate-300 hover:bg-slate-100" title="縮小圖片">
+                  🔍－
+                </button>
+                <button type="button" id="btn-zoom-reset-sched" onclick="resetScheduleImageZoom()" class="hidden px-2 py-1 rounded-lg text-xs font-bold bg-white border border-slate-300 hover:bg-slate-100" title="恢復符合寬度">
+                  100% 寬
+                </button>
+                <button type="button" id="btn-zoom-in-sched" onclick="changeScheduleImageZoom(25)" class="hidden px-2 py-1 rounded-lg text-xs font-bold bg-white border border-slate-300 hover:bg-slate-100" title="放大圖片">
+                  🔍＋
+                </button>
+                <button type="button" id="btn-rot-sched" onclick="rotateScheduleImage()" class="hidden px-2 py-1 rounded-lg text-xs font-bold bg-white border border-slate-300 hover:bg-slate-100">
+                  旋轉90°
+                </button>
+                <button type="button" id="btn-del-sched" onclick="removeScheduleImage()" class="hidden px-2 py-1 rounded-lg text-xs font-bold bg-red-50 border border-red-200 text-red-600 hover:bg-red-100">
+                  移除
+                </button>
+              </div>
+            </div>
+            <div id="schedule-image-preview" class="hidden bg-white border border-slate-200 rounded-lg p-1.5 max-h-44 sm:max-h-56 overflow-auto">
+              <img id="schedule-image-el" src="" style="width: 100%; max-width: none; height: auto;" class="block mx-auto rounded" />
             </div>
           </div>
 
-          <!-- 7 組常用片語快插 -->
-          <div class="space-y-1.5">
-            <span class="text-xs font-extrabold text-amber-900 block">⚡ 快速輸入小幫手（先點擊下方任一「應做事項」框，再點片語插入）：</span>
-            <div class="flex flex-wrap gap-1.5" id="quick-phrases-container">
-              <!-- 常用片語按鈕由 JS 生成 -->
+          <!-- 快速輸入小幫手 ＋ 反白選取字體顏色工具列（固定於上方） -->
+          <div class="rounded-xl bg-amber-50/95 border border-amber-200 p-2.5 space-y-2">
+            <!-- Google 文件式反白文字換色工具列 -->
+            <div class="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b border-amber-200/80">
+              <span class="text-xs font-extrabold text-slate-800">🎨 反白文字設定顏色（如 Google 文件）：</span>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button type="button" onmousedown="event.preventDefault(); applyRichFormat('foreColor', '#000000')"
+                  class="px-2 py-0.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 text-black border border-slate-300 flex items-center gap-1 shadow-2xs">
+                  <span class="w-2.5 h-2.5 rounded-full bg-black inline-block"></span> 黑色(預設)
+                </button>
+                <button type="button" onmousedown="event.preventDefault(); applyRichFormat('foreColor', '#DC2626')"
+                  class="px-2 py-0.5 rounded-lg text-xs font-bold bg-white hover:bg-red-50 text-red-600 border border-red-300 flex items-center gap-1 shadow-2xs">
+                  <span class="w-2.5 h-2.5 rounded-full bg-red-600 inline-block"></span> 紅色重點
+                </button>
+                <button type="button" onmousedown="event.preventDefault(); applyRichFormat('foreColor', '#1D4ED8')"
+                  class="px-2 py-0.5 rounded-lg text-xs font-bold bg-white hover:bg-blue-50 text-blue-700 border border-blue-300 flex items-center gap-1 shadow-2xs">
+                  <span class="w-2.5 h-2.5 rounded-full bg-blue-700 inline-block"></span> 藍色標記
+                </button>
+                <button type="button" onmousedown="event.preventDefault(); applyRichFormat('bold')"
+                  class="px-2 py-0.5 rounded-lg text-xs font-extrabold bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 shadow-2xs">
+                  B 粗體
+                </button>
+                <button type="button" onmousedown="event.preventDefault(); applyRichFormat('removeFormat')"
+                  class="px-2 py-0.5 rounded-lg text-xs font-medium bg-white hover:bg-slate-100 text-slate-500 border border-slate-300">
+                  清除格式
+                </button>
+              </div>
+            </div>
+
+            <!-- 常用片語快插（支援自訂新增，上限 15 個） -->
+            <div class="space-y-1.5">
+              <div class="flex flex-wrap items-center justify-between gap-1.5">
+                <span class="text-xs font-extrabold text-amber-900">⚡ 快速輸入小幫手（點下方框後點片語插入，<span id="phrase-count-label">7/15</span>）：</span>
+                <div class="flex items-center gap-1">
+                  <input type="text" id="new-phrase-input" maxlength="25" placeholder="輸入自訂片語..."
+                    onkeydown="if(event.key==='Enter'){event.preventDefault(); addCustomQuickPhrase();}"
+                    class="text-xs border border-amber-300 rounded-lg px-2 py-1 bg-white w-32 sm:w-40 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                  <button type="button" onclick="addCustomQuickPhrase()"
+                    class="px-2 py-1 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-2xs">
+                    ＋新增
+                  </button>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto" id="quick-phrases-container">
+                <!-- 常用片語按鈕由 JS 生成 -->
+              </div>
             </div>
           </div>
+
         </div>
 
         <!-- 節次列編輯列表 -->
@@ -626,12 +638,19 @@
 
   <script>
     // =========================================================================
-    // 1. 全域狀態與預設資料結構
+    // 1. 全域常數、狀態定義與本機儲存鍵值
     // =========================================================================
-    const STORAGE_KEY_DRAFT = 'sub_handover_draft_v2';
-    const STORAGE_KEY_TEMPLATES = 'sub_handover_templates_v2';
+    const STORAGE_KEY_DRAFT = 'sub_handover_draft_v3';
+    const STORAGE_KEY_TEMPLATES = 'sub_handover_templates_v3';
+    const STORAGE_KEY_HISTORY = 'sub_handover_history_v3';
+    const STORAGE_KEY_PHRASES = 'sub_handover_phrases_v3';
 
-    const QUICK_PHRASES = [
+    const COMMON_SUBJECTS = [
+      '國語', '數學', '英語', '社會', '自然',
+      '體育', '美勞', '健康', '音樂', '本土語'
+    ];
+
+    const DEFAULT_QUICK_PHRASES = [
       '完成習作p.__',
       '發下學習單',
       '安排考試',
@@ -642,45 +661,45 @@
     ];
 
     const SEAT_STATUS_CYCLE = [
-      { key: 'none', label: '', border: '#94A3B8', bg: '#FFFFFF', text: '#000000' },
-      { key: 'special', label: '特生留意', border: '#DC2626', bg: '#FEF2F2', text: '#DC2626' },
-      { key: 'mobility', label: '行動不便', border: '#D97706', bg: '#FFFBEB', text: '#B45309' },
-      { key: 'leader', label: '幹部/收簿', border: '#1D4ED8', bg: '#EFF6FF', text: '#1D4ED8' },
-      { key: 'missing', label: '缺交/補寫', border: '#7C3AED', bg: '#F5F3FF', text: '#6D28D9' }
+      { key: 'none', label: '', bg: '#FFFFFF', border: '#CBD5E1', text: '#000000' },
+      { key: 'special', label: '特生留意', bg: '#FEE2E2', border: '#EF4444', text: '#991B1B' },
+      { key: 'mobility', label: '行動不便', bg: '#FEF3C7', border: '#F59E0B', text: '#92400E' },
+      { key: 'leader', label: '幹部/收簿', bg: '#DBEAFE', border: '#3B82F6', text: '#1E40AF' },
+      { key: 'missing', label: '缺交/補寫', bg: '#F3E8FF', border: '#A855F7', text: '#6B21A8' }
     ];
 
     let lastFocusedRichEditor = null;
+    let customQuickPhrases = [...DEFAULT_QUICK_PHRASES];
 
     function createDefaultPeriods() {
-      const names = ['早自習', '第一節', '第二節', '第三節', '第四節', '第五節', '第六節', '第七節'];
-      return names.map((name, idx) => ({
-        id: 'p_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2, 6),
-        timeSlot: name,
+      const slots = ['早自習', '第一節', '第二節', '第三節', '第四節', '第五節', '第六節', '第七節'];
+      return slots.map((slot, i) => ({
+        id: 'p_' + Date.now() + '_' + i + '_' + Math.random().toString(36).slice(2, 5),
+        timeSlot: slot,
         subject: '',
+        subjectSelect: '',
         tasksHtml: '',
         links: '',
-        images: [] // { id, dataUrl, caption }
+        images: []
       }));
     }
 
     function createDefaultDay(dateStr = '') {
-      const today = dateStr || new Date().toISOString().split('T')[0];
       return {
         id: 'day_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        date: today,
+        date: dateStr || new Date().toISOString().slice(0, 10),
         school: '',
         className: '',
         teacherName: '',
-        scheduleInputMode: 'table', // 'table' | 'image'
         scheduleImage: '',
         periods: createDefaultPeriods(),
-        activities: [], // { id, title, descriptionHtml, rows: [{ id, item, descHtml }], images: [{ id, dataUrl, caption }] }
-        seatingGroups: [] // { id, title, mode: 'grid'|'image', cols, rows, rawRoster, seats: [{ num, name, status }], image, note }
+        activities: [],
+        seatingGroups: []
       };
     }
 
     let appState = {
-      roleMode: 'substitute', // 'substitute' (代課老師整理版) | 'leave' (任課老師交接版)
+      roleMode: 'substitute', // 'substitute' | 'homeroom' | 'subject'
       currentDayIndex: 0,
       previewScope: 'current', // 'current' | 'all'
       options: {
@@ -692,73 +711,94 @@
     };
 
     // =========================================================================
-    // 2. 初始化與 LocalStorage 讀寫
-    // =========================================================================
-    window.onload = function () {
-      try {
-        const savedDraft = localStorage.getItem(STORAGE_KEY_DRAFT);
-        if (savedDraft) {
-          const parsed = JSON.parse(savedDraft);
-          if (parsed && Array.isArray(parsed.days) && parsed.days.length > 0) {
-            appState = parsed;
-          }
-        }
-      } catch (e) {
-        console.warn('讀取草稿失敗，使用預設狀態', e);
-      }
-
-      renderQuickPhrases();
-      refreshTemplateDropdown();
-      syncAllUI();
-    };
-
-    function saveDraftToLocal() {
-      try {
-        localStorage.setItem(STORAGE_KEY_DRAFT, JSON.stringify(appState));
-        const now = new Date();
-        const hh = String(now.getHours()).padStart(2, '0');
-        const mm = String(now.getMinutes()).padStart(2, '0');
-        const ss = String(now.getSeconds()).padStart(2, '0');
-        document.getElementById('autosave-status').textContent = `已自動暫存 (${hh}:${mm}:${ss})`;
-      } catch (e) {
-        document.getElementById('autosave-status').textContent = '⚠ 圖片過多接近本機容量上限，建議匯出備份';
-      }
-    }
-
-    function showToast(msg) {
-      const box = document.getElementById('toast-box');
-      box.textContent = msg;
-      box.classList.remove('hidden');
-      clearTimeout(window._toastTimer);
-      window._toastTimer = setTimeout(() => {
-        box.classList.add('hidden');
-      }, 2600);
-    }
-
-    // =========================================================================
-    // 3. 狀態存取、角色切換、全域選項與多日頁籤管理 (1~5天)
+    // 2. 核心狀態存取與自動儲存
     // =========================================================================
     function getCurrentDay() {
+      if (!Array.isArray(appState.days) || appState.days.length === 0) {
+        appState.days = [createDefaultDay()];
+      }
       if (appState.currentDayIndex < 0 || appState.currentDayIndex >= appState.days.length) {
         appState.currentDayIndex = 0;
       }
       return appState.days[appState.currentDayIndex];
     }
 
-    function getWeekdayLabel(dateStr) {
-      if (!dateStr) return '';
-      const parts = dateStr.split('-').map(Number);
-      if (parts.length !== 3) return '';
-      const d = new Date(parts[0], parts[1] - 1, parts[2]);
-      const names = ['日', '一', '二', '三', '四', '五', '六'];
-      return names[d.getDay()] || '';
+    function saveDraftToLocal() {
+      try {
+        localStorage.setItem(STORAGE_KEY_DRAFT, JSON.stringify(appState));
+        const statusEl = document.getElementById('autosave-status');
+        if (statusEl) {
+          const now = new Date();
+          const hh = String(now.getHours()).padStart(2, '0');
+          const mm = String(now.getMinutes()).padStart(2, '0');
+          const ss = String(now.getSeconds()).padStart(2, '0');
+          statusEl.textContent = `已自動暫存於本機 (${hh}:${mm}:${ss})`;
+        }
+      } catch (e) {
+        const statusEl = document.getElementById('autosave-status');
+        if (statusEl) {
+          statusEl.textContent = '本機暫存空間已滿（圖片過多，建議立即匯出備份）';
+        }
+      }
     }
 
-    function formatShortDate(dateStr) {
-      if (!dateStr) return '未設日期';
-      const parts = dateStr.split('-');
-      if (parts.length !== 3) return dateStr;
-      return `${Number(parts[1])}/${Number(parts[2])}`;
+    function loadDraftFromLocal() {
+      try {
+        const savedPhrases = localStorage.getItem(STORAGE_KEY_PHRASES);
+        if (savedPhrases) {
+          const parsedPhrases = JSON.parse(savedPhrases);
+          if (Array.isArray(parsedPhrases) && parsedPhrases.length > 0) {
+            customQuickPhrases = parsedPhrases.slice(0, 15);
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY_DRAFT);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && Array.isArray(parsed.days) && parsed.days.length > 0) {
+            appState = parsed;
+          }
+        }
+      } catch (e) {}
+    }
+
+    function showToast(msg) {
+      const box = document.getElementById('toast-box');
+      if (!box) return;
+      box.textContent = msg;
+      box.classList.remove('hidden');
+      clearTimeout(box._timer);
+      box._timer = setTimeout(() => {
+        box.classList.add('hidden');
+      }, 2600);
+    }
+
+    // =========================================================================
+    // 3. 頂部工具列、手機分頁切換與多日排程控制
+    // =========================================================================
+    function toggleMobileDrawer() {
+      const drawer = document.getElementById('mobile-settings-drawer');
+      if (drawer) drawer.classList.toggle('hidden');
+    }
+
+    function switchMobileTab(tab) {
+      const editBtn = document.getElementById('mobile-nav-edit');
+      const prevBtn = document.getElementById('mobile-nav-preview');
+      if (tab === 'preview') {
+        document.body.classList.remove('mobile-tab-edit');
+        document.body.classList.add('mobile-tab-preview');
+        if (prevBtn) prevBtn.className = 'py-2.5 rounded-xl text-sm font-extrabold bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5 transition-all';
+        if (editBtn) editBtn.className = 'py-2.5 rounded-xl text-sm font-extrabold bg-slate-100 text-slate-700 border border-slate-300 flex items-center justify-center gap-1.5 transition-all';
+        renderPreview();
+      } else {
+        document.body.classList.remove('mobile-tab-preview');
+        document.body.classList.add('mobile-tab-edit');
+        if (editBtn) editBtn.className = 'py-2.5 rounded-xl text-sm font-extrabold bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5 transition-all';
+        if (prevBtn) prevBtn.className = 'py-2.5 rounded-xl text-sm font-extrabold bg-slate-100 text-slate-700 border border-slate-300 flex items-center justify-center gap-1.5 transition-all';
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function setRoleMode(mode) {
@@ -768,57 +808,32 @@
       syncAllUI();
     }
 
-    function updateGlobalOption(key, val) {
-      appState.options[key] = val;
-      saveDraftToLocal();
+    function updateGlobalOption(key, checked) {
+      appState.options[key] = checked;
       syncGlobalOptionCheckboxes();
+      saveDraftToLocal();
       renderPreview();
     }
 
     function syncGlobalOptionCheckboxes() {
-      const hT = !!appState.options.hideTeacherName;
-      const hE = !!appState.options.hideEmptyPeriods;
-      const pB = !!appState.options.pageBreakPerDay;
-      document.getElementById('opt-hide-teacher').checked = hT;
-      document.getElementById('opt-hide-empty').checked = hE;
-      document.getElementById('opt-page-break').checked = pB;
-      const mT = document.getElementById('mobile-opt-hide-teacher');
-      const mE = document.getElementById('mobile-opt-hide-empty');
-      const mP = document.getElementById('mobile-opt-page-break');
-      if (mT) mT.checked = hT;
-      if (mE) mE.checked = hE;
-      if (mP) mP.checked = pB;
+      const pairs = [
+        ['opt-hide-teacher', 'mobile-opt-hide-teacher', appState.options.hideTeacherName],
+        ['opt-hide-empty', 'mobile-opt-hide-empty', appState.options.hideEmptyPeriods],
+        ['opt-page-break', 'mobile-opt-page-break', appState.options.pageBreakPerDay]
+      ];
+      pairs.forEach(([deskId, mobId, val]) => {
+        const dEl = document.getElementById(deskId);
+        const mEl = document.getElementById(mobId);
+        if (dEl) dEl.checked = !!val;
+        if (mEl) mEl.checked = !!val;
+      });
     }
 
     function syncExportScope(val) {
-      const deskSel = document.getElementById('export-scope');
-      const mobSel = document.getElementById('mobile-export-scope');
-      if (deskSel) deskSel.value = val;
-      if (mobSel) mobSel.value = val;
-    }
-
-    function toggleMobileDrawer() {
-      const drawer = document.getElementById('mobile-settings-drawer');
-      if (drawer) drawer.classList.toggle('hidden');
-    }
-
-    function switchMobileTab(tab) {
-      const body = document.body;
-      const btnEdit = document.getElementById('mobile-nav-edit');
-      const btnPrev = document.getElementById('mobile-nav-preview');
-      if (tab === 'preview') {
-        body.classList.remove('mobile-tab-edit');
-        body.classList.add('mobile-tab-preview');
-        btnPrev.className = 'py-2.5 rounded-xl text-sm font-extrabold bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5 transition-all';
-        btnEdit.className = 'py-2.5 rounded-xl text-sm font-extrabold bg-slate-100 text-slate-700 border border-slate-300 flex items-center justify-center gap-1.5 transition-all';
-        renderPreview();
-      } else {
-        body.classList.remove('mobile-tab-preview');
-        body.classList.add('mobile-tab-edit');
-        btnEdit.className = 'py-2.5 rounded-xl text-sm font-extrabold bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5 transition-all';
-        btnPrev.className = 'py-2.5 rounded-xl text-sm font-extrabold bg-slate-100 text-slate-700 border border-slate-300 flex items-center justify-center gap-1.5 transition-all';
-      }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const dSel = document.getElementById('export-scope');
+      const mSel = document.getElementById('mobile-export-scope');
+      if (dSel) dSel.value = val;
+      if (mSel) mSel.value = val;
     }
 
     function setPreviewScope(scope) {
@@ -835,70 +850,94 @@
       renderPreview();
     }
 
+    function getWeekdayLabel(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return '';
+      const names = ['日', '一', '二', '三', '四', '五', '六'];
+      return '星期' + names[d.getDay()];
+    }
+
+    function formatShortDate(dateStr) {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      return `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
+    }
+
+    function getNextDateStr(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return '';
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().slice(0, 10);
+    }
+
     function renderDayTabs() {
       const container = document.getElementById('day-tabs-container');
+      if (!container) return;
       container.innerHTML = '';
 
-      appState.days.forEach((day, idx) => {
+      appState.days.forEach((d, idx) => {
         const isActive = idx === appState.currentDayIndex;
-        const wk = getWeekdayLabel(day.date);
-        const label = `第${idx + 1}天 (${formatShortDate(day.date)}${wk ? ' 週' + wk : ''})`;
+        const wk = getWeekdayLabel(d.date);
+        const shortD = formatShortDate(d.date);
+        const label = `第 ${idx + 1} 天${shortD ? ` (${shortD}${wk ? ' ' + wk.replace('星期', '週') : ''})` : ''}`;
 
-        const wrapper = document.createElement('div');
-        wrapper.className = 'inline-flex items-center shrink-0';
+        const wrap = document.createElement('div');
+        wrap.className = `inline-flex items-center rounded-xl border shrink-0 transition-all ${
+          isActive
+            ? 'bg-blue-900 text-white border-blue-900 shadow-sm'
+            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+        }`;
 
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = isActive
-          ? 'px-3 py-1.5 rounded-xl text-xs sm:text-sm font-extrabold bg-blue-900 text-white shadow-sm whitespace-nowrap'
-          : 'px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 whitespace-nowrap';
-        btn.textContent = label;
-        btn.onclick = () => {
+        const tabBtn = document.createElement('button');
+        tabBtn.type = 'button';
+        tabBtn.className = 'px-3 py-1.5 text-xs sm:text-sm font-bold';
+        tabBtn.textContent = label;
+        tabBtn.onclick = () => {
           appState.currentDayIndex = idx;
           syncAllUI();
         };
-        wrapper.appendChild(btn);
+        wrap.appendChild(tabBtn);
 
         if (appState.days.length > 1) {
           const delBtn = document.createElement('button');
           delBtn.type = 'button';
-          delBtn.title = '刪除此天';
-          delBtn.className = 'ml-0.5 px-1.5 py-1 text-xs font-bold text-slate-400 hover:text-red-600';
+          delBtn.title = '移除此天';
+          delBtn.className = `pr-2.5 pl-1 py-1.5 text-xs font-bold ${isActive ? 'text-blue-200 hover:text-white' : 'text-slate-400 hover:text-red-600'}`;
           delBtn.textContent = '×';
-          delBtn.onclick = () => removeDay(idx);
-          wrapper.appendChild(delBtn);
+          delBtn.onclick = (e) => {
+            e.stopPropagation();
+            removeDay(idx);
+          };
+          wrap.appendChild(delBtn);
         }
 
-        container.appendChild(wrapper);
+        container.appendChild(wrap);
       });
 
       if (appState.days.length < 5) {
         const addBtn = document.createElement('button');
         addBtn.type = 'button';
-        addBtn.className = 'px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 shrink-0 whitespace-nowrap';
+        addBtn.className = 'px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 shrink-0';
         addBtn.textContent = `＋ 新增天數 (${appState.days.length}/5)`;
-        addBtn.onclick = addNewDay;
+        addBtn.onclick = addDay;
         container.appendChild(addBtn);
       }
     }
 
-    function addNewDay() {
+    function addDay() {
       if (appState.days.length >= 5) {
-        showToast('最多支援一次排定 5 天');
+        showToast('最多一次排定 5 天');
         return;
       }
       const lastDay = appState.days[appState.days.length - 1];
-      let nextDateStr = '';
-      if (lastDay && lastDay.date) {
-        const parts = lastDay.date.split('-').map(Number);
-        const d = new Date(parts[0], parts[1] - 1, parts[2] + 1);
-        nextDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      }
-      appState.days.push(createDefaultDay(nextDateStr));
+      const nextDate = getNextDateStr(lastDay.date);
+      appState.days.push(createDefaultDay(nextDate));
       appState.currentDayIndex = appState.days.length - 1;
       saveDraftToLocal();
       syncAllUI();
-      showToast(`已新增第 ${appState.days.length} 天`);
     }
 
     function removeDay(idx) {
@@ -909,42 +948,58 @@
       }
       saveDraftToLocal();
       syncAllUI();
-      showToast('已刪除該日分頁');
     }
 
     function copyFromPreviousDay() {
       if (appState.currentDayIndex === 0) {
-        showToast('目前已經是第 1 天，無前一天可複製');
+        showToast('目前已經是第 1 天，沒有前一天的資料可複製');
         return;
       }
-      const prevDay = appState.days[appState.currentDayIndex - 1];
-      const currDay = getCurrentDay();
-      currDay.school = prevDay.school;
-      currDay.className = prevDay.className;
-      currDay.teacherName = prevDay.teacherName;
-      currDay.scheduleInputMode = prevDay.scheduleInputMode;
-      currDay.scheduleImage = prevDay.scheduleImage;
-      currDay.periods = JSON.parse(JSON.stringify(prevDay.periods));
-      currDay.seatingGroups = JSON.parse(JSON.stringify(prevDay.seatingGroups));
+      const prev = appState.days[appState.currentDayIndex - 1];
+      const curr = getCurrentDay();
+      curr.school = prev.school;
+      curr.className = prev.className;
+      curr.teacherName = prev.teacherName;
+      curr.scheduleImage = prev.scheduleImage;
+      curr.periods = prev.periods.map((p) => ({
+        ...p,
+        id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        tasksHtml: '',
+        links: '',
+        images: []
+      }));
+      curr.seatingGroups = JSON.parse(JSON.stringify(prev.seatingGroups));
       saveDraftToLocal();
       syncAllUI();
-      showToast('已複製前一天的學校、班級、課表架構與座位表！');
+      showToast('已複製前一天的班級、課表科目與座位表！');
     }
 
     function updateDayField(key, val) {
       const day = getCurrentDay();
       day[key] = val;
       saveDraftToLocal();
-      if (key === 'date') {
-        renderDayTabs();
-      }
+      if (key === 'date') renderDayTabs();
       renderPreview();
     }
 
     // =========================================================================
-    // 4. 課表雙模式切換與課表圖片處理
+    // 4. 課表圖片處理（常駐顯示於手動輸入上方，預設 100% 寬度＋上下捲動＋縮放＋收合）
     // =========================================================================
     let scheduleImageZoomPct = 100;
+    let isScheduleImageCollapsed = false;
+
+    function toggleScheduleImageCollapse() {
+      isScheduleImageCollapsed = !isScheduleImageCollapsed;
+      const imgPrev = document.getElementById('schedule-image-preview');
+      const btnToggle = document.getElementById('btn-toggle-sched-collapse');
+      if (isScheduleImageCollapsed) {
+        imgPrev.classList.add('hidden');
+        btnToggle.textContent = '展開課表';
+      } else {
+        imgPrev.classList.remove('hidden');
+        btnToggle.textContent = '收合課表';
+      }
+    }
 
     function applyScheduleImageZoom() {
       const imgEl = document.getElementById('schedule-image-el');
@@ -960,62 +1015,49 @@
     }
 
     function changeScheduleImageZoom(delta) {
+      if (isScheduleImageCollapsed) toggleScheduleImageCollapse();
       scheduleImageZoomPct = Math.max(50, Math.min(250, scheduleImageZoomPct + delta));
       applyScheduleImageZoom();
     }
 
     function resetScheduleImageZoom() {
+      if (isScheduleImageCollapsed) toggleScheduleImageCollapse();
       scheduleImageZoomPct = 100;
       applyScheduleImageZoom();
     }
 
-    function setScheduleInputMode(mode) {
-      const day = getCurrentDay();
-      day.scheduleInputMode = mode;
-      saveDraftToLocal();
-      syncScheduleImageUI();
-    }
-
     function syncScheduleImageUI() {
       const day = getCurrentDay();
-      const isImgMode = day.scheduleInputMode === 'image';
-      const btnTbl = document.getElementById('sched-mode-table');
-      const btnImg = document.getElementById('sched-mode-image');
-      const imgBox = document.getElementById('schedule-image-box');
       const imgPrev = document.getElementById('schedule-image-preview');
       const imgEl = document.getElementById('schedule-image-el');
+      const btnToggle = document.getElementById('btn-toggle-sched-collapse');
       const btnZoomOut = document.getElementById('btn-zoom-out-sched');
       const btnZoomReset = document.getElementById('btn-zoom-reset-sched');
       const btnZoomIn = document.getElementById('btn-zoom-in-sched');
       const btnRot = document.getElementById('btn-rot-sched');
       const btnDel = document.getElementById('btn-del-sched');
 
-      if (isImgMode) {
-        btnImg.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-blue-900 shadow-sm';
-        btnTbl.className = 'px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900';
-      } else {
-        btnTbl.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-blue-900 shadow-sm';
-        btnImg.className = 'px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900';
-      }
-
-      if (isImgMode || day.scheduleImage) {
-        imgBox.classList.remove('hidden');
-      } else {
-        imgBox.classList.add('hidden');
-      }
-
       if (day.scheduleImage) {
-        imgPrev.classList.remove('hidden');
+        if (!isScheduleImageCollapsed) {
+          imgPrev.classList.remove('hidden');
+          btnToggle.textContent = '收合課表';
+        } else {
+          imgPrev.classList.add('hidden');
+          btnToggle.textContent = '展開課表';
+        }
         imgEl.src = day.scheduleImage;
         applyScheduleImageZoom();
+        btnToggle.classList.remove('hidden');
         btnZoomOut.classList.remove('hidden');
         btnZoomReset.classList.remove('hidden');
         btnZoomIn.classList.remove('hidden');
         btnRot.classList.remove('hidden');
         btnDel.classList.remove('hidden');
       } else {
+        isScheduleImageCollapsed = false;
         imgPrev.classList.add('hidden');
         imgEl.src = '';
+        btnToggle.classList.add('hidden');
         btnZoomOut.classList.add('hidden');
         btnZoomReset.classList.add('hidden');
         btnZoomIn.classList.add('hidden');
@@ -1030,8 +1072,8 @@
       compressImageFile(file, 1400, (dataUrl) => {
         const day = getCurrentDay();
         day.scheduleImage = dataUrl;
-        day.scheduleInputMode = 'image';
         scheduleImageZoomPct = 100;
+        isScheduleImageCollapsed = false;
         saveDraftToLocal();
         syncScheduleImageUI();
         renderPreview();
@@ -1059,22 +1101,74 @@
     }
 
     // =========================================================================
-    // 5. 常用片語快插與 Google 文件式反白選取字體換色工具
+    // 5. 常用片語快插（支援自訂新增上限 15 個）與 Google 文件式反白選取換色工具
     // =========================================================================
+    function savePhrasesToLocal() {
+      try {
+        localStorage.setItem(STORAGE_KEY_PHRASES, JSON.stringify(customQuickPhrases));
+      } catch (e) {}
+    }
+
     function renderQuickPhrases() {
       const container = document.getElementById('quick-phrases-container');
+      const countLabel = document.getElementById('phrase-count-label');
       container.innerHTML = '';
-      QUICK_PHRASES.forEach((phrase) => {
+      if (countLabel) {
+        countLabel.textContent = `${customQuickPhrases.length}/15`;
+      }
+
+      customQuickPhrases.forEach((phrase, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'inline-flex items-center rounded-lg border border-slate-300 bg-white overflow-hidden shadow-2xs';
+
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-800 hover:bg-blue-50 hover:border-blue-300 transition-colors shadow-2xs';
+        btn.className = 'px-2.5 py-1 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-900 transition-colors';
         btn.textContent = phrase;
         btn.onmousedown = (e) => {
           e.preventDefault(); // 保持編輯框游標選區不遺失
           insertPhraseToFocused(phrase);
         };
-        container.appendChild(btn);
+        chip.appendChild(btn);
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.title = '刪除此片語';
+        delBtn.className = 'px-1.5 py-1 text-[11px] font-bold text-slate-400 hover:text-red-600 hover:bg-red-50 border-l border-slate-200';
+        delBtn.textContent = '×';
+        delBtn.onclick = () => removeCustomQuickPhrase(idx);
+        chip.appendChild(delBtn);
+
+        container.appendChild(chip);
       });
+    }
+
+    function addCustomQuickPhrase() {
+      const input = document.getElementById('new-phrase-input');
+      const val = (input.value || '').trim();
+      if (!val) {
+        showToast('請輸入要新增的片語內容');
+        return;
+      }
+      if (customQuickPhrases.length >= 15) {
+        showToast('常用片語最多 15 個，請先刪除不常用的再新增');
+        return;
+      }
+      if (customQuickPhrases.includes(val)) {
+        showToast('此片語已經在清單中囉！');
+        return;
+      }
+      customQuickPhrases.push(val);
+      savePhrasesToLocal();
+      input.value = '';
+      renderQuickPhrases();
+      showToast(`已新增片語「${val}」`);
+    }
+
+    function removeCustomQuickPhrase(idx) {
+      customQuickPhrases.splice(idx, 1);
+      savePhrasesToLocal();
+      renderQuickPhrases();
     }
 
     function applyRichFormat(command, value = null) {
@@ -1123,11 +1217,9 @@
       const container = document.getElementById('periods-list');
       container.innerHTML = '';
 
-      const isSub = appState.roleMode === 'substitute';
-      const subjectPlaceholder = isSub
-        ? '例：608 國語 / 301 自然(自然教室)'
-        : '例：國語 / 數學 / 閱讀(圖書館)';
-      const taskPlaceholder = isSub
+      const mode = appState.roleMode;
+      const useSubjectDropdown = (mode === 'substitute' || mode === 'homeroom');
+      const taskPlaceholder = mode === 'substitute'
         ? '輸入當節應做事項、頁數、考試或注意事項（可反白文字套用紅／藍字）'
         : '請代課老師協助完成之進度、考卷位置、作業或學生提醒（可反白套用紅／藍字）';
 
@@ -1135,20 +1227,56 @@
         const card = document.createElement('div');
         card.className = 'rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-2.5';
 
+        // 判斷目前科目是否屬於常用科目或自訂
+        let selVal = p.subjectSelect !== undefined ? p.subjectSelect : '';
+        if (selVal === '' && p.subject) {
+          selVal = COMMON_SUBJECTS.includes(p.subject) ? p.subject : '其他';
+        }
+        const showCustomSubjectInput = (selVal === '其他');
+
         // 第一排：時段、課表科目/班級、排序與刪除鈕
         const topRow = document.createElement('div');
         topRow.className = 'grid grid-cols-12 gap-2 items-center';
+
+        let subjectHtml = '';
+        if (useSubjectDropdown) {
+          const optionsHtml = [
+            `<option value="">-- 選擇科目 --</option>`,
+            ...COMMON_SUBJECTS.map((s) => `<option value="${s}" ${selVal === s ? 'selected' : ''}>${s}</option>`),
+            `<option value="其他" ${selVal === '其他' ? 'selected' : ''}>其他（自行填入）</option>`
+          ].join('');
+
+          subjectHtml = `
+            <div class="col-span-5 sm:col-span-7 flex flex-wrap sm:flex-nowrap gap-1.5">
+              <select onchange="handleSubjectSelectChange(${idx}, this.value)"
+                class="${showCustomSubjectInput ? 'w-full sm:w-2/5' : 'w-full'} text-xs sm:text-sm font-semibold bg-white border border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700">
+                ${optionsHtml}
+              </select>
+              ${showCustomSubjectInput ? `
+                <input type="text" value="${escapeAttr(p.subject)}" placeholder="自行填入科目／活動"
+                  oninput="updatePeriodField(${idx}, 'subject', this.value)"
+                  class="w-full sm:w-3/5 text-xs sm:text-sm font-semibold bg-white border border-blue-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+              ` : ''}
+            </div>
+          `;
+        } else {
+          // 科任老師交接版：直接手動輸入班級（與教室）
+          subjectHtml = `
+            <div class="col-span-5 sm:col-span-7">
+              <input type="text" value="${escapeAttr(p.subject)}" placeholder="直接輸入上課班級（例：301 班 / 402 自然教室）"
+                oninput="updatePeriodField(${idx}, 'subject', this.value)"
+                class="w-full text-xs sm:text-sm font-semibold bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+            </div>
+          `;
+        }
+
         topRow.innerHTML = `
           <div class="col-span-4 sm:col-span-3">
             <input type="text" value="${escapeAttr(p.timeSlot)}" placeholder="時段"
               oninput="updatePeriodField(${idx}, 'timeSlot', this.value)"
               class="w-full text-xs sm:text-sm font-bold bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-blue-700" />
           </div>
-          <div class="col-span-5 sm:col-span-7">
-            <input type="text" value="${escapeAttr(p.subject)}" placeholder="${subjectPlaceholder}"
-              oninput="updatePeriodField(${idx}, 'subject', this.value)"
-              class="w-full text-xs sm:text-sm font-semibold bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700" />
-          </div>
+          ${subjectHtml}
           <div class="col-span-3 sm:col-span-2 flex items-center justify-end gap-1">
             <button type="button" onclick="movePeriod(${idx}, -1)" title="上移" class="px-2 py-1 text-xs rounded bg-white border border-slate-300 hover:bg-slate-100">↑</button>
             <button type="button" onclick="movePeriod(${idx}, 1)" title="下移" class="px-2 py-1 text-xs rounded bg-white border border-slate-300 hover:bg-slate-100">↓</button>
@@ -1190,13 +1318,15 @@
             const item = document.createElement('div');
             item.className = 'bg-white border border-slate-200 rounded-lg p-2 flex flex-col gap-1.5';
             item.innerHTML = `
-              <img src="${imgObj.dataUrl}" class="max-h-32 w-full object-contain rounded bg-slate-50" />
-              <input type="text" value="${escapeAttr(imgObj.caption || '')}" placeholder="圖片說明（例：學習單正面）"
+              <div class="relative bg-slate-100 rounded overflow-hidden flex items-center justify-center h-28">
+                <img src="${imgObj.dataUrl}" class="max-h-full max-w-full object-contain" />
+              </div>
+              <input type="text" value="${escapeAttr(imgObj.caption || '')}" placeholder="輸入圖片說明（選填）"
                 oninput="updatePeriodImageCaption(${idx}, ${imgIdx}, this.value)"
-                class="text-[11px] border border-slate-200 rounded px-2 py-1" />
-              <div class="flex justify-between gap-1">
-                <button type="button" onclick="rotatePeriodImage(${idx}, ${imgIdx})" class="px-2 py-0.5 text-[11px] rounded bg-slate-100 hover:bg-slate-200">旋轉90°</button>
-                <button type="button" onclick="removePeriodImage(${idx}, ${imgIdx})" class="px-2 py-0.5 text-[11px] rounded bg-red-50 text-red-600 hover:bg-red-100">刪除圖片</button>
+                class="w-full text-xs border border-slate-300 rounded px-2 py-1" />
+              <div class="flex justify-end gap-1.5">
+                <button type="button" onclick="rotatePeriodImage(${idx}, ${imgIdx})" class="px-2 py-0.5 text-[11px] font-bold rounded bg-slate-100 hover:bg-slate-200 text-slate-700">旋轉90°</button>
+                <button type="button" onclick="removePeriodImage(${idx}, ${imgIdx})" class="px-2 py-0.5 text-[11px] font-bold rounded bg-red-50 hover:bg-red-100 text-red-600">移除</button>
               </div>
             `;
             imgGrid.appendChild(item);
@@ -1206,6 +1336,23 @@
 
         container.appendChild(card);
       });
+    }
+
+    function handleSubjectSelectChange(idx, val) {
+      const day = getCurrentDay();
+      const p = day.periods[idx];
+      if (!p) return;
+      p.subjectSelect = val;
+      if (val === '其他') {
+        if (COMMON_SUBJECTS.includes(p.subject)) {
+          p.subject = '';
+        }
+      } else {
+        p.subject = val;
+      }
+      saveDraftToLocal();
+      renderPeriodsEditor();
+      renderPreview();
     }
 
     function updatePeriodField(idx, key, val) {
@@ -1222,6 +1369,7 @@
         id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
         timeSlot: '第八節',
         subject: '',
+        subjectSelect: '',
         tasksHtml: '',
         links: '',
         images: []
@@ -1305,16 +1453,77 @@
     }
 
     // =========================================================================
-    // 7. 當日學校活動區塊
+    // 7. 當日學校活動區塊（Activities）動態渲染與操作
     // =========================================================================
     function addActivityBlock() {
       const day = getCurrentDay();
       day.activities.push({
         id: 'act_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        title: '當日學校活動',
+        title: '當日學校活動（例：運動會預演）',
         descriptionHtml: '',
         images: []
       });
+      saveDraftToLocal();
+      renderActivitiesEditor();
+      renderPreview();
+    }
+
+    function deleteActivityBlock(actIdx) {
+      getCurrentDay().activities.splice(actIdx, 1);
+      saveDraftToLocal();
+      renderActivitiesEditor();
+      renderPreview();
+    }
+
+    function updateActivityField(actIdx, key, val) {
+      const act = getCurrentDay().activities[actIdx];
+      if (!act) return;
+      act[key] = val;
+      saveDraftToLocal();
+      renderPreview();
+    }
+
+    function handleActivityImagesUpload(event, actIdx) {
+      const files = Array.from(event.target.files || []);
+      if (files.length === 0) return;
+      const act = getCurrentDay().activities[actIdx];
+      let processed = 0;
+      files.forEach((file) => {
+        compressImageFile(file, 1100, (dataUrl) => {
+          act.images.push({
+            id: 'aimg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            dataUrl,
+            caption: ''
+          });
+          processed++;
+          if (processed === files.length) {
+            saveDraftToLocal();
+            renderActivitiesEditor();
+            renderPreview();
+          }
+        });
+      });
+      event.target.value = '';
+    }
+
+    function updateActivityImageCaption(actIdx, imgIdx, val) {
+      getCurrentDay().activities[actIdx].images[imgIdx].caption = val;
+      saveDraftToLocal();
+      renderPreview();
+    }
+
+    function rotateActivityImage(actIdx, imgIdx) {
+      const imgObj = getCurrentDay().activities[actIdx].images[imgIdx];
+      rotateDataUrl90(imgObj.dataUrl, (rotated) => {
+        imgObj.dataUrl = rotated;
+        saveDraftToLocal();
+        renderActivitiesEditor();
+        renderPreview();
+      });
+    }
+
+    function removeActivityImage(actIdx, imgIdx) {
+      getCurrentDay().activities[actIdx].images.splice(imgIdx, 1);
       saveDraftToLocal();
       renderActivitiesEditor();
       renderPreview();
@@ -1325,162 +1534,69 @@
       const container = document.getElementById('activities-list');
       container.innerHTML = '';
 
-      if (day.activities.length === 0) {
-        container.innerHTML = `<div class="text-xs text-slate-400 text-center py-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">目前無當日學校活動（若有運動會預演、兒童節慶祝活動等可點右上角新增）</div>`;
+      if (!day.activities || day.activities.length === 0) {
+        container.innerHTML = `<div class="text-xs text-slate-400 text-center py-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">目前未新增當日學校活動（若有預演、慶祝活動或比賽流程可按右上角新增）</div>`;
         return;
       }
 
-      day.activities.forEach((act, aIdx) => {
-        const box = document.createElement('div');
-        box.className = 'rounded-xl border border-amber-200 bg-amber-50/30 p-3 space-y-2.5';
+      day.activities.forEach((act, actIdx) => {
+        const card = document.createElement('div');
+        card.className = 'rounded-xl border border-amber-200 bg-amber-50/30 p-3 space-y-2.5';
 
         const header = document.createElement('div');
         header.className = 'flex items-center gap-2';
         header.innerHTML = `
-          <input type="text" value="${escapeAttr(act.title)}" placeholder="活動標題（例：當日學校活動 - 運動會預演）"
-            oninput="updateActivityTitle(${aIdx}, this.value)"
-            class="flex-1 text-xs sm:text-sm font-extrabold bg-white border border-amber-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-          <button type="button" onclick="deleteActivityBlock(${aIdx})" class="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100">
+          <input type="text" value="${escapeAttr(act.title || '')}" placeholder="活動標題（例：運動會預演注意事項）"
+            oninput="updateActivityField(${actIdx}, 'title', this.value)"
+            class="flex-1 text-xs sm:text-sm font-extrabold bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+          <label class="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 cursor-pointer shrink-0">
+            ＋ 附活動圖 (${(act.images || []).length})
+            <input type="file" accept="image/*" multiple class="hidden" onchange="handleActivityImagesUpload(event, ${actIdx})" />
+          </label>
+          <button type="button" onclick="deleteActivityBlock(${actIdx})" class="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100">
             刪除
           </button>
         `;
-        box.appendChild(header);
+        card.appendChild(header);
 
         const descEditor = document.createElement('div');
         descEditor.contentEditable = 'true';
-        descEditor.setAttribute('data-placeholder', '例如：運動會預演、兒童節慶祝活動等說明文字即可（可反白文字套用紅／藍字）');
+        descEditor.setAttribute('data-placeholder', '輸入活動時間、集合地點、分組棒次或注意事項（電腦版可反白選取文字套用紅／藍字）');
         descEditor.innerHTML = act.descriptionHtml || '';
         descEditor.className = 'rich-editor w-full text-xs sm:text-sm bg-white border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500';
         descEditor.onfocus = () => { lastFocusedRichEditor = descEditor; };
-        descEditor.oninput = () => {
-          getCurrentDay().activities[aIdx].descriptionHtml = descEditor.innerHTML;
-          saveDraftToLocal();
-          renderPreview();
-        };
-        box.appendChild(descEditor);
+        descEditor.oninput = () => updateActivityField(actIdx, 'descriptionHtml', descEditor.innerHTML);
+        card.appendChild(descEditor);
 
-        const footer = document.createElement('div');
-        footer.className = 'flex flex-wrap items-center justify-end gap-2 pt-0.5';
-        footer.innerHTML = `
-          <label class="px-2.5 py-1 text-xs font-bold rounded-lg bg-blue-800 hover:bg-blue-900 text-white cursor-pointer">
-            ＋ 附活動／流程圖片 (${act.images.length})
-            <input type="file" accept="image/*" multiple class="hidden" onchange="handleActivityImagesUpload(event, ${aIdx})" />
-          </label>
-        `;
-        box.appendChild(footer);
-
-        if (act.images.length > 0) {
+        if (act.images && act.images.length > 0) {
           const imgGrid = document.createElement('div');
           imgGrid.className = 'grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1';
           act.images.forEach((imgObj, imgIdx) => {
             const item = document.createElement('div');
             item.className = 'bg-white border border-slate-200 rounded-lg p-2 flex flex-col gap-1.5';
             item.innerHTML = `
-              <img src="${imgObj.dataUrl}" class="max-h-36 w-full object-contain rounded bg-slate-50" />
-              <input type="text" value="${escapeAttr(imgObj.caption || '')}" placeholder="圖說（選填）"
-                oninput="updateActivityImageCaption(${aIdx}, ${imgIdx}, this.value)"
-                class="text-[11px] border border-slate-200 rounded px-2 py-1" />
-              <div class="flex justify-between gap-1">
-                <button type="button" onclick="rotateActivityImage(${aIdx}, ${imgIdx})" class="px-2 py-0.5 text-[11px] rounded bg-slate-100 hover:bg-slate-200">旋轉90°</button>
-                <button type="button" onclick="removeActivityImage(${aIdx}, ${imgIdx})" class="px-2 py-0.5 text-[11px] rounded bg-red-50 text-red-600 hover:bg-red-100">刪除圖片</button>
+              <div class="relative bg-slate-100 rounded overflow-hidden flex items-center justify-center h-28">
+                <img src="${imgObj.dataUrl}" class="max-h-full max-w-full object-contain" />
+              </div>
+              <input type="text" value="${escapeAttr(imgObj.caption || '')}" placeholder="輸入圖片說明（選填）"
+                oninput="updateActivityImageCaption(${actIdx}, ${imgIdx}, this.value)"
+                class="w-full text-xs border border-slate-300 rounded px-2 py-1" />
+              <div class="flex justify-end gap-1.5">
+                <button type="button" onclick="rotateActivityImage(${actIdx}, ${imgIdx})" class="px-2 py-0.5 text-[11px] font-bold rounded bg-slate-100 hover:bg-slate-200 text-slate-700">旋轉90°</button>
+                <button type="button" onclick="removeActivityImage(${actIdx}, ${imgIdx})" class="px-2 py-0.5 text-[11px] font-bold rounded bg-red-50 hover:bg-red-100 text-red-600">移除</button>
               </div>
             `;
             imgGrid.appendChild(item);
           });
-          box.appendChild(imgGrid);
+          card.appendChild(imgGrid);
         }
 
-        container.appendChild(box);
+        container.appendChild(card);
       });
-    }
-
-    function updateActivityTitle(aIdx, val) {
-      getCurrentDay().activities[aIdx].title = val;
-      saveDraftToLocal();
-      renderPreview();
-    }
-
-    function deleteActivityBlock(aIdx) {
-      getCurrentDay().activities.splice(aIdx, 1);
-      saveDraftToLocal();
-      renderActivitiesEditor();
-      renderPreview();
-    }
-
-    function addActivityRow(aIdx) {
-      getCurrentDay().activities[aIdx].rows.push({
-        id: 'r_' + Date.now(),
-        item: '',
-        desc: ''
-      });
-      saveDraftToLocal();
-      renderActivitiesEditor();
-      renderPreview();
-    }
-
-    function updateActivityRow(aIdx, rIdx, key, val) {
-      getCurrentDay().activities[aIdx].rows[rIdx][key] = val;
-      saveDraftToLocal();
-      renderPreview();
-    }
-
-    function deleteActivityRow(aIdx, rIdx) {
-      const act = getCurrentDay().activities[aIdx];
-      if (act.rows.length <= 1) return;
-      act.rows.splice(rIdx, 1);
-      saveDraftToLocal();
-      renderActivitiesEditor();
-      renderPreview();
-    }
-
-    function handleActivityImagesUpload(event, aIdx) {
-      const files = Array.from(event.target.files || []);
-      if (files.length === 0) return;
-      const act = getCurrentDay().activities[aIdx];
-      let done = 0;
-      files.forEach((f) => {
-        compressImageFile(f, 1100, (dataUrl) => {
-          act.images.push({
-            id: 'aimg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-            dataUrl,
-            caption: ''
-          });
-          done++;
-          if (done === files.length) {
-            saveDraftToLocal();
-            renderActivitiesEditor();
-            renderPreview();
-          }
-        });
-      });
-      event.target.value = '';
-    }
-
-    function updateActivityImageCaption(aIdx, imgIdx, val) {
-      getCurrentDay().activities[aIdx].images[imgIdx].caption = val;
-      saveDraftToLocal();
-      renderPreview();
-    }
-
-    function rotateActivityImage(aIdx, imgIdx) {
-      const imgObj = getCurrentDay().activities[aIdx].images[imgIdx];
-      rotateDataUrl90(imgObj.dataUrl, (rotated) => {
-        imgObj.dataUrl = rotated;
-        saveDraftToLocal();
-        renderActivitiesEditor();
-        renderPreview();
-      });
-    }
-
-    function removeActivityImage(aIdx, imgIdx) {
-      getCurrentDay().activities[aIdx].images.splice(imgIdx, 1);
-      saveDraftToLocal();
-      renderActivitiesEditor();
-      renderPreview();
     }
 
     // =========================================================================
-    // 8. 班級名單與座位表區塊（支援格子生成＋特殊標記＆圖片上傳）
+    // 8. 班級名單與座位表區塊（支援名單匯入下拉選單、講台前後視角切換、置頂新增與上下排序）
     // =========================================================================
     function addSeatingGroup(mode) {
       const day = getCurrentDay();
@@ -1488,21 +1604,110 @@
         id: 'sg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
         title: day.className ? `${day.className} 座位表` : '班級座位表',
         mode: mode, // 'grid' | 'image'
+        podiumPos: 'top', // 'top' (講台在前/上方) | 'bottom' (講台在後/下方)
         cols: 6,
         rows: 5,
         rawRoster: '',
+        rosterList: [], // [{ num, name }]
         seats: [],
         image: '',
         note: ''
       };
       if (mode === 'grid') {
-        newGroup.seats = Array.from({ length: 30 }, (_, i) => ({
-          num: String(i + 1).padStart(2, '0'),
+        newGroup.seats = Array.from({ length: 30 }, () => ({
+          num: '',
           name: '',
           status: 'none'
         }));
       }
-      day.seatingGroups.push(newGroup);
+      // 新增在最上方
+      day.seatingGroups.unshift(newGroup);
+      saveDraftToLocal();
+      renderSeatingEditor();
+      renderPreview();
+      showToast('已新增於座位表最上方');
+    }
+
+    function moveSeatingGroup(sgIdx, dir) {
+      const day = getCurrentDay();
+      const target = sgIdx + dir;
+      if (target < 0 || target >= day.seatingGroups.length) return;
+      const temp = day.seatingGroups[sgIdx];
+      day.seatingGroups[sgIdx] = day.seatingGroups[target];
+      day.seatingGroups[target] = temp;
+      saveDraftToLocal();
+      renderSeatingEditor();
+      renderPreview();
+    }
+
+    function toggleSeatingPodium(sgIdx, pos) {
+      const sg = getCurrentDay().seatingGroups[sgIdx];
+      sg.podiumPos = pos;
+      saveDraftToLocal();
+      renderSeatingEditor();
+      renderPreview();
+    }
+
+    function parseRosterLines(rawText) {
+      return (rawText || '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .map((line, idx) => {
+          const match = line.match(/^(\d+)[\s、.．:：-]*(.*)$/);
+          if (match) {
+            return { num: match[1], name: match[2].trim() };
+          }
+          return { num: String(idx + 1).padStart(2, '0'), name: line };
+        });
+    }
+
+    function importRosterDropdownOptions(sgIdx) {
+      const sg = getCurrentDay().seatingGroups[sgIdx];
+      const list = parseRosterLines(sg.rawRoster);
+      if (list.length === 0) {
+        showToast('請先輸入或貼上學生名單');
+        return;
+      }
+      sg.rosterList = list;
+      saveDraftToLocal();
+      renderSeatingEditor();
+      showToast(`已匯入 ${list.length} 位學生名單，可於下方座位格使用下拉選單編排！`);
+    }
+
+    function autoFillRosterToSeats(sgIdx) {
+      const sg = getCurrentDay().seatingGroups[sgIdx];
+      const list = parseRosterLines(sg.rawRoster);
+      if (list.length === 0) {
+        showToast('請先輸入或貼上學生名單');
+        return;
+      }
+      sg.rosterList = list;
+      const total = sg.cols * sg.rows;
+      for (let i = 0; i < total; i++) {
+        if (list[i]) {
+          sg.seats[i] = { num: list[i].num, name: list[i].name, status: sg.seats[i]?.status || 'none' };
+        }
+      }
+      saveDraftToLocal();
+      renderSeatingEditor();
+      renderPreview();
+      showToast('已匯入名單並依序填入座位格');
+    }
+
+    function handleSeatDropdownSelect(sgIdx, sIdx, selectedKey) {
+      const sg = getCurrentDay().seatingGroups[sgIdx];
+      const seat = sg.seats[sIdx];
+      if (!selectedKey) {
+        seat.num = '';
+        seat.name = '';
+      } else {
+        const found = (sg.rosterList || []).find((item) => `${item.num}|||${item.name}` === selectedKey);
+        if (found) {
+          seat.num = found.num;
+          seat.name = found.name;
+        }
+      }
       saveDraftToLocal();
       renderSeatingEditor();
       renderPreview();
@@ -1514,20 +1719,29 @@
       container.innerHTML = '';
 
       if (day.seatingGroups.length === 0) {
-        container.innerHTML = `<div class="text-xs text-slate-400 text-center py-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">目前未新增座位表（可點上方按鈕新增格子座位表或上傳座位表圖片）</div>`;
+        container.innerHTML = `<div class="text-xs text-slate-400 text-center py-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">目前未新增座位表（點擊上方按鈕會新增在最上方，並可調整順序）</div>`;
         return;
       }
 
       day.seatingGroups.forEach((sg, sgIdx) => {
+        if (!sg.podiumPos) sg.podiumPos = 'top';
+        if (!Array.isArray(sg.rosterList)) sg.rosterList = [];
+
         const card = document.createElement('div');
         card.className = 'rounded-xl border border-emerald-200 bg-emerald-50/20 p-3 space-y-2.5';
 
+        // 標題列 ＋ 上下調整順序鈕 ＋ 刪除鈕
         const header = document.createElement('div');
-        header.className = 'flex items-center gap-2';
+        header.className = 'flex items-center gap-1.5';
         header.innerHTML = `
+          <span class="px-2 py-1 rounded-md bg-emerald-700 text-white text-[11px] font-extrabold shrink-0">#${sgIdx + 1}</span>
           <input type="text" value="${escapeAttr(sg.title)}" placeholder="座位表標題（例：608 座位表）"
             oninput="updateSeatingField(${sgIdx}, 'title', this.value)"
-            class="flex-1 text-xs sm:text-sm font-extrabold bg-white border border-emerald-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-600" />
+            class="flex-1 min-w-[120px] text-xs sm:text-sm font-extrabold bg-white border border-emerald-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-600" />
+          <button type="button" onclick="moveSeatingGroup(${sgIdx}, -1)" title="上移順序"
+            class="px-2 py-1.5 text-xs font-bold rounded-lg bg-white border border-slate-300 hover:bg-slate-100 ${sgIdx === 0 ? 'opacity-40 cursor-not-allowed' : ''}">↑</button>
+          <button type="button" onclick="moveSeatingGroup(${sgIdx}, 1)" title="下移順序"
+            class="px-2 py-1.5 text-xs font-bold rounded-lg bg-white border border-slate-300 hover:bg-slate-100 ${sgIdx === day.seatingGroups.length - 1 ? 'opacity-40 cursor-not-allowed' : ''}">↓</button>
           <button type="button" onclick="deleteSeatingGroup(${sgIdx})" class="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100">
             刪除
           </button>
@@ -1552,37 +1766,70 @@
           `;
           card.appendChild(imgControls);
         } else {
-          // 格子座位表模式
+          // 格子座位表模式：含「視角轉換（講台在前/後）」與「名單匯入下拉選單」
+          const hasRoster = sg.rosterList.length > 0;
           const gridConfig = document.createElement('div');
           gridConfig.className = 'space-y-2';
           gridConfig.innerHTML = `
-            <div class="flex flex-wrap items-center gap-2 text-xs">
-              <label class="font-bold text-slate-700">直排(行)：
-                <input type="number" min="1" max="10" value="${sg.cols}" onchange="resizeSeatingGrid(${sgIdx}, this.value, ${sg.rows})"
-                  class="w-14 border border-slate-300 rounded px-2 py-1 bg-white text-center font-bold" />
-              </label>
-              <label class="font-bold text-slate-700">橫列(排)：
-                <input type="number" min="1" max="10" value="${sg.rows}" onchange="resizeSeatingGrid(${sgIdx}, ${sg.cols}, this.value)"
-                  class="w-14 border border-slate-300 rounded px-2 py-1 bg-white text-center font-bold" />
-              </label>
-              <button type="button" onclick="toggleRosterInput(${sgIdx})" class="px-2.5 py-1 rounded-lg bg-white border border-emerald-300 text-emerald-800 font-bold hover:bg-emerald-50">
-                貼上名單快速填入
-              </button>
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div class="flex flex-wrap items-center gap-2">
+                <label class="font-bold text-slate-700">直排(行)：
+                  <input type="number" min="1" max="10" value="${sg.cols}" onchange="resizeSeatingGrid(${sgIdx}, this.value, ${sg.rows})"
+                    class="w-12 border border-slate-300 rounded px-1.5 py-1 bg-white text-center font-bold" />
+                </label>
+                <label class="font-bold text-slate-700">橫列(排)：
+                  <input type="number" min="1" max="10" value="${sg.rows}" onchange="resizeSeatingGrid(${sgIdx}, ${sg.cols}, this.value)"
+                    class="w-12 border border-slate-300 rounded px-1.5 py-1 bg-white text-center font-bold" />
+                </label>
+                <button type="button" onclick="toggleRosterInput(${sgIdx})" class="px-2.5 py-1 rounded-lg bg-emerald-700 text-white font-bold hover:bg-emerald-800 shadow-2xs">
+                  📋 匯入名單 (${sg.rosterList.length}人)
+                </button>
+              </div>
+
+              <!-- 視角轉換：講台在前（上方）或講台在後（下方） -->
+              <div class="inline-flex items-center rounded-lg bg-white border border-slate-300 p-0.5">
+                <span class="px-1.5 text-[11px] font-bold text-slate-500">講台視角：</span>
+                <button type="button" onclick="toggleSeatingPodium(${sgIdx}, 'top')"
+                  class="px-2 py-0.5 rounded text-[11px] font-bold ${sg.podiumPos === 'top' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-slate-100'}">
+                  講台在前(上)
+                </button>
+                <button type="button" onclick="toggleSeatingPodium(${sgIdx}, 'bottom')"
+                  class="px-2 py-0.5 rounded text-[11px] font-bold ${sg.podiumPos === 'bottom' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-slate-100'}">
+                  講台在後(下)
+                </button>
+              </div>
             </div>
-            <div id="roster-paste-box-${sgIdx}" class="hidden space-y-1.5 bg-white p-2.5 rounded-lg border border-emerald-200">
-              <textarea rows="3" placeholder="每行一位學生，例：&#10;01 王小明&#10;02 陳小華"
+
+            <div id="roster-paste-box-${sgIdx}" class="${hasRoster ? 'hidden' : ''} space-y-1.5 bg-white p-2.5 rounded-lg border border-emerald-200">
+              <div class="text-[11px] font-bold text-emerald-900">貼上全班名單（每行一位，例如：01 王小明），匯入後即可在下方每個座位格使用「下拉選單」挑選學生：</div>
+              <textarea rows="3" placeholder="01 王小明&#10;02 陳小華&#10;03 林大維"
                 oninput="updateSeatingField(${sgIdx}, 'rawRoster', this.value)"
                 class="w-full text-xs border border-slate-300 rounded-lg p-2">${escapeHtml(sg.rawRoster || '')}</textarea>
-              <button type="button" onclick="applyRosterToSeats(${sgIdx})" class="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-700 text-white hover:bg-emerald-800">
-                套用名單至下方座位格
-              </button>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" onclick="importRosterDropdownOptions(${sgIdx})" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-700 text-white hover:bg-emerald-800">
+                  匯入為座位下拉選單
+                </button>
+                <button type="button" onclick="autoFillRosterToSeats(${sgIdx})" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-800 border border-slate-300 hover:bg-slate-200">
+                  匯入並依序自動排入格子
+                </button>
+              </div>
             </div>
-            <div class="text-[11px] text-slate-600">點擊座位格右上角標籤可循環標記：<span class="text-red-600 font-bold">特生留意</span> → <span class="text-amber-700 font-bold">行動不便</span> → <span class="text-blue-700 font-bold">幹部/收簿</span> → <span class="text-purple-700 font-bold">缺交/補寫</span></div>
+            <div class="text-[11px] text-slate-600">點擊格子右上角可標記：<span class="text-red-600 font-bold">特生留意</span> → <span class="text-amber-700 font-bold">行動不便</span> → <span class="text-blue-700 font-bold">幹部/收簿</span> → <span class="text-purple-700 font-bold">缺交/補寫</span></div>
           `;
           card.appendChild(gridConfig);
 
+          // 講台指示條（上方）
+          const podiumTopBar = document.createElement('div');
+          podiumTopBar.className = 'text-center text-xs font-extrabold bg-slate-200/80 text-slate-800 rounded-lg py-1 border border-slate-300';
+          podiumTopBar.textContent = '【 講 台 / 黑 板 （前） 】';
+
+          // 講台指示條（下方）
+          const podiumBottomBar = document.createElement('div');
+          podiumBottomBar.className = 'text-center text-xs font-extrabold bg-slate-200/80 text-slate-800 rounded-lg py-1 border border-slate-300';
+          podiumBottomBar.textContent = '【 講 台 / 黑 板 （後） 】';
+
           const gridWrap = document.createElement('div');
-          gridWrap.className = 'grid gap-1.5 pt-1';
+          gridWrap.className = 'grid gap-1.5';
           gridWrap.style.gridTemplateColumns = `repeat(${sg.cols}, minmax(0, 1fr))`;
 
           const total = sg.cols * sg.rows;
@@ -1598,23 +1845,50 @@
             cell.style.borderColor = st.border;
             cell.style.backgroundColor = st.bg;
 
+            // 若已匯入名單，提供下拉選單直接選取學生；亦保留手動微調
+            let selectorHtml = '';
+            if (sg.rosterList.length > 0) {
+              const curKey = (seat.num || seat.name) ? `${seat.num}|||${seat.name}` : '';
+              const opts = [
+                `<option value="">-- 空位/選學生 --</option>`,
+                ...sg.rosterList.map((stu) => {
+                  const k = `${stu.num}|||${stu.name}`;
+                  return `<option value="${escapeAttr(k)}" ${curKey === k ? 'selected' : ''}>${escapeHtml(stu.num)} ${escapeHtml(stu.name)}</option>`;
+                })
+              ].join('');
+              selectorHtml = `
+                <select onchange="handleSeatDropdownSelect(${sgIdx}, ${sIdx}, this.value)"
+                  class="w-full text-[11px] font-bold bg-white/90 border border-slate-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-600">
+                  ${opts}
+                </select>
+              `;
+            }
+
             cell.innerHTML = `
               <div class="flex items-center justify-between gap-0.5">
                 <input type="text" value="${escapeAttr(seat.num)}" placeholder="號"
                   oninput="updateSeatCell(${sgIdx}, ${sIdx}, 'num', this.value)"
-                  class="w-9 text-[11px] font-bold text-center border-b border-slate-200 bg-transparent focus:outline-none" />
+                  class="w-8 text-[11px] font-bold text-center border-b border-slate-200 bg-transparent focus:outline-none" />
                 <button type="button" onclick="cycleSeatStatus(${sgIdx}, ${sIdx})" title="點擊切換特殊標記"
                   class="px-1 py-0.5 rounded text-[10px] font-bold border border-slate-200 bg-white/80 hover:bg-white">
                   ${st.label || '標記'}
                 </button>
               </div>
+              ${selectorHtml}
               <input type="text" value="${escapeAttr(seat.name)}" placeholder="姓名"
                 oninput="updateSeatCell(${sgIdx}, ${sIdx}, 'name', this.value)"
                 class="w-full text-xs font-bold text-center bg-transparent focus:outline-none" />
             `;
             gridWrap.appendChild(cell);
           }
-          card.appendChild(gridWrap);
+
+          if (sg.podiumPos === 'bottom') {
+            card.appendChild(gridWrap);
+            card.appendChild(podiumBottomBar);
+          } else {
+            card.appendChild(podiumTopBar);
+            card.appendChild(gridWrap);
+          }
         }
 
         container.appendChild(card);
@@ -1726,7 +2000,9 @@
       const dateDisplay = day.date ? `${day.date.replace(/-/g, '/')}（${wk}）` : '';
 
       const titlePrefix = [day.school, day.className].filter(Boolean).join(' ');
-      const docTypeLabel = appState.roleMode === 'substitute' ? '代課須知' : '任課老師交接單';
+      const docTypeLabel = appState.roleMode === 'substitute'
+        ? '代課須知'
+        : (appState.roleMode === 'subject' ? '科任老師交接單' : '導師交接單');
       const mainTitle = `${titlePrefix ? titlePrefix + '｜' : ''}${dateDisplay ? dateDisplay + ' ' : ''}${docTypeLabel}`;
 
       const showTeacher = !appState.options.hideTeacherName && day.teacherName && day.teacherName.trim() !== '';
@@ -1865,11 +2141,23 @@
             `;
           }
         } else {
-          // 格子座位表輸出成標準 HTML 表格（確保 Word 與列印 100% 整齊）
-          html += `
+          // 格子座位表輸出成標準 HTML 表格（支援講台在前/上方 或 講台在後/下方）
+          const podiumPos = sg.podiumPos || 'top';
+          const podiumTopHtml = `
             <div style="text-align: center; font-size: 11.5px; font-weight: 700; background: #F1F5F9; border: 1px solid #334155; border-bottom: none; padding: 3px;">
-              【 講 台 / 黑 板 】
+              【 講 台 / 黑 板 （前） 】
             </div>
+          `;
+          const podiumBottomHtml = `
+            <div style="text-align: center; font-size: 11.5px; font-weight: 700; background: #F1F5F9; border: 1px solid #334155; border-top: none; padding: 3px;">
+              【 講 台 / 黑 板 （後） 】
+            </div>
+          `;
+
+          if (podiumPos === 'top') {
+            html += podiumTopHtml;
+          }
+          html += `
             <table class="print-table" style="text-align: center;">
               <tbody>
           `;
@@ -1891,6 +2179,9 @@
             html += `</tr>`;
           }
           html += `</tbody></table>`;
+          if (podiumPos === 'bottom') {
+            html += podiumBottomHtml;
+          }
         }
         html += `</div>`;
       });
@@ -1917,19 +2208,26 @@
     // 10. 整體 UI 同步函式
     // =========================================================================
     function syncAllUI() {
-      // 角色模式按鈕樣式
+      // 角色模式按鈕樣式（三模式：代課老師整理版 / 導師交接版 / 科任老師交接版）
       const btnSub = document.getElementById('mode-sub-btn');
-      const btnLeave = document.getElementById('mode-leave-btn');
+      const btnHome = document.getElementById('mode-homeroom-btn');
+      const btnSubj = document.getElementById('mode-subject-btn');
       const bannerText = document.getElementById('role-banner-text');
 
+      const inactiveClass = 'flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900';
+      btnSub.className = inactiveClass;
+      btnHome.className = inactiveClass;
+      btnSubj.className = inactiveClass;
+
       if (appState.roleMode === 'substitute') {
-        btnSub.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-blue-900 text-white shadow-sm';
-        btnLeave.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900';
-        bannerText.textContent = '目前為【代課老師整理版】：適合整併多則訊息與課表，同節任務集中呈現並預設隱藏任課老師姓名。';
+        btnSub.className = 'flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-blue-900 text-white shadow-sm';
+        bannerText.textContent = '目前為【代課老師整理版】：可上傳課表圖片對照，並透過常用科目下拉選單快速整理各節任務（預設隱藏任課老師姓名）。';
+      } else if (appState.roleMode === 'homeroom') {
+        btnHome.className = 'flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-amber-600 text-white shadow-sm';
+        bannerText.textContent = '目前為【導師交接版】：提供常用科目下拉選單與「其他(自行填入)」，方便導師完整交代全班各節進度、作業與座位表。';
       } else {
-        btnLeave.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-amber-600 text-white shadow-sm';
-        btnSub.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900';
-        bannerText.textContent = '目前為【任課老師交接版】：適合交代各節課堂進度、教材連結、考卷位置與班級特殊學生提醒。';
+        btnSubj.className = 'flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-emerald-700 text-white shadow-sm';
+        bannerText.textContent = '目前為【科任老師交接版】：課表欄位可直接手動輸入各節上課班級與教室，無需常用科目選單，跑班交接更直覺。';
       }
 
       // 全域選項核取方塊
@@ -2413,6 +2711,16 @@
     function escapeAttr(str) {
       return escapeHtml(str).replace(/'/g, '&#39;');
     }
+
+    // =========================================================================
+    // 15. 網頁載入初始化
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      loadDraftFromLocal();
+      refreshTemplateDropdown();
+      renderQuickPhrases();
+      syncAllUI();
+    });
   </script>
 </body>
 </html>
