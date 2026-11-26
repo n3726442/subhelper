@@ -150,6 +150,15 @@
         break-inside: avoid;
         page-break-inside: avoid;
       }
+      .a4-sheet img {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        max-width: 100% !important;
+        height: auto !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
     }
 
     /* 手機版專屬適配（< 1024px）：單頁聚焦編輯或預覽、支援原生雙指放大 */
@@ -298,6 +307,10 @@
             <span>隱藏無課務空堂</span>
           </label>
           <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" id="mobile-opt-hide-sched-img" class="rounded text-blue-800 w-4 h-4" onchange="updateGlobalOption('hideScheduleImage', this.checked)" />
+            <span>隱藏課表圖片</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
             <input type="checkbox" id="mobile-opt-page-break" class="rounded text-blue-800 w-4 h-4" onchange="updateGlobalOption('pageBreakPerDay', this.checked)" />
             <span>一日一頁分頁</span>
           </label>
@@ -322,6 +335,10 @@
           <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
             <input type="checkbox" id="opt-hide-empty" class="rounded text-blue-800 focus:ring-blue-700 w-4 h-4" onchange="updateGlobalOption('hideEmptyPeriods', this.checked)" />
             <span>隱藏無課務空堂</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" id="opt-hide-sched-img" class="rounded text-blue-800 focus:ring-blue-700 w-4 h-4" onchange="updateGlobalOption('hideScheduleImage', this.checked)" />
+            <span>列印／匯出隱藏課表圖片</span>
           </label>
           <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
             <input type="checkbox" id="opt-page-break" class="rounded text-blue-800 focus:ring-blue-700 w-4 h-4" onchange="updateGlobalOption('pageBreakPerDay', this.checked)" />
@@ -705,6 +722,7 @@
       options: {
         hideTeacherName: true,
         hideEmptyPeriods: false,
+        hideScheduleImage: false,
         pageBreakPerDay: true
       },
       days: [createDefaultDay()]
@@ -819,6 +837,7 @@
       const pairs = [
         ['opt-hide-teacher', 'mobile-opt-hide-teacher', appState.options.hideTeacherName],
         ['opt-hide-empty', 'mobile-opt-hide-empty', appState.options.hideEmptyPeriods],
+        ['opt-hide-sched-img', 'mobile-opt-hide-sched-img', appState.options.hideScheduleImage],
         ['opt-page-break', 'mobile-opt-page-break', appState.options.pageBreakPerDay]
       ];
       pairs.forEach(([deskId, mobId, val]) => {
@@ -1642,10 +1661,23 @@
 
     function toggleSeatingPodium(sgIdx, pos) {
       const sg = getCurrentDay().seatingGroups[sgIdx];
+      if (!sg) return;
+      const oldPos = sg.podiumPos || 'top';
+      if (oldPos !== pos && Array.isArray(sg.seats)) {
+        const total = sg.cols * sg.rows;
+        while (sg.seats.length < total) {
+          sg.seats.push({ num: '', name: '', status: 'none' });
+        }
+        // 講台從前(上)切換到後(下)或反之時，將現有座位格整組 180 度反轉（前後對調、左右鏡像）
+        const activeSlice = sg.seats.slice(0, total).reverse();
+        const extraSlice = sg.seats.slice(total);
+        sg.seats = activeSlice.concat(extraSlice);
+      }
       sg.podiumPos = pos;
       saveDraftToLocal();
       renderSeatingEditor();
       renderPreview();
+      showToast(pos === 'bottom' ? '已切換為講台在後，座位表已同步倒轉' : '已切換為講台在前，座位表已同步倒轉');
     }
 
     function parseRosterLines(rawText) {
@@ -2024,8 +2056,8 @@
         </div>
       `;
 
-      // 若有上傳課表截圖
-      if (day.scheduleImage) {
+      // 若有上傳課表截圖且未勾選「隱藏課表圖片」
+      if (day.scheduleImage && !appState.options.hideScheduleImage) {
         html += `
           <div style="margin-bottom: 12px; text-align: center; border: 1px solid #CBD5E1; padding: 6px; background: #F8FAFC;">
             <div style="font-size: 11.5px; font-weight: 700; color: #334155; margin-bottom: 4px;">【當日課表對照圖】</div>
@@ -2310,12 +2342,26 @@
       } else if (scope === 'current' && appState.previewScope !== 'current') {
         setPreviewScope('current');
       }
-      setTimeout(() => {
-        window.print();
-        if (prevScopeBackup !== appState.previewScope) {
-          setPreviewScope(prevScopeBackup);
-        }
-      }, 150);
+      // 等待預覽區內所有 base64 圖片解碼完成後再呼叫系統列印／另存 PDF
+      const container = document.getElementById('preview-render-container');
+      const imgs = Array.from(container.querySelectorAll('img'));
+      Promise.all(
+        imgs.map((img) =>
+          img.complete
+            ? Promise.resolve()
+            : new Promise((resolve) => {
+                img.onload = resolve;
+                img.onerror = resolve;
+              })
+        )
+      ).then(() => {
+        setTimeout(() => {
+          window.print();
+          if (prevScopeBackup !== appState.previewScope) {
+            setPreviewScope(prevScopeBackup);
+          }
+        }, 250);
+      });
     }
 
     function exportToPNG() {
