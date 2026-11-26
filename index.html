@@ -1,0 +1,2373 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>教師請假／代課交接單產生器</title>
+  <!-- 載入 Tailwind CSS 與 Google Fonts (Noto Sans TC) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 載入 html2canvas 用於匯出高解析度 PNG 圖檔 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans TC"', 'Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              navy: '#1E3A8A',
+              blue: '#1D4ED8',
+              amber: '#D97706',
+              amberLight: '#FEF3C7',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background-color: #F8FAFC;
+      color: #0F172A;
+    }
+
+    /* 富文本編輯器樣式（支援像 Google 文件一樣反白選取換色） */
+    .rich-editor {
+      min-height: 62px;
+      outline: none;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .rich-editor:empty:before {
+      content: attr(data-placeholder);
+      color: #94A3B8;
+      pointer-events: none;
+      display: block;
+    }
+
+    /* 自訂捲軸美化 */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #F1F5F9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94A3B8;
+    }
+
+    /* A4 紙張預覽視覺樣式（完全列印友善：白底、極淺灰表頭、黑字＋重點紅字） */
+    .a4-sheet {
+      background-color: #FFFFFF;
+      color: #000000;
+      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+      border: 1px solid #CBD5E1;
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      border-radius: 6px;
+    }
+
+    .print-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+
+    .print-table th,
+    .print-table td {
+      border: 1px solid #334155;
+      padding: 7px 9px;
+      vertical-align: top;
+      word-wrap: break-word;
+    }
+
+    .print-table th {
+      background-color: #F1F5F9;
+      color: #000000;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .red-highlight {
+      color: #DC2626;
+      font-weight: 700;
+    }
+
+    /* 列印專用樣式：隱藏所有操作介面，僅保留預覽區 A4 內容 */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 10mm 12mm;
+      }
+      body {
+        background: #FFFFFF !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      #app-layout {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+      #preview-pane {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        background: #FFFFFF !important;
+      }
+      .a4-sheet {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 0 12mm 0 !important;
+        border-radius: 0 !important;
+      }
+      .page-break-after {
+        page-break-after: always;
+        break-after: page;
+      }
+      .print-table tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    }
+
+    /* 手機版專屬適配（< 1024px）：單頁聚焦編輯或預覽、支援原生雙指放大 */
+    @media (max-width: 1023px) {
+      body {
+        padding-bottom: 66px;
+      }
+      body.mobile-tab-edit #preview-pane {
+        display: none;
+      }
+      body.mobile-tab-preview #editor-pane {
+        display: none;
+      }
+      .a4-sheet {
+        padding: 14px 12px;
+        margin-bottom: 16px;
+      }
+      .print-table {
+        font-size: 12.5px;
+      }
+      .print-table th,
+      .print-table td {
+        padding: 5px 6px;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col mobile-tab-edit">
+
+  <!-- ==================== 頂部全域工具列 ==================== -->
+  <header class="no-print bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-[1600px] mx-auto px-3 sm:px-5 py-2 sm:py-2.5 flex flex-wrap items-center justify-between gap-2">
+      <!-- 品牌與雙角色模式切換 -->
+      <div class="flex flex-wrap items-center justify-between sm:justify-start w-full lg:w-auto gap-2">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-900 text-white font-bold text-sm sm:text-base shadow-sm">代</span>
+          <div>
+            <h1 class="text-sm sm:text-lg font-extrabold text-slate-900 leading-tight">請假／代課交接單產生器</h1>
+            <p id="autosave-status" class="text-[11px] text-slate-500">本機自動暫存就緒</p>
+          </div>
+        </div>
+
+        <!-- 手機版：設定與範本收合按鈕 -->
+        <button type="button" onclick="toggleMobileDrawer()"
+          class="lg:hidden px-3 py-1.5 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 flex items-center gap-1">
+          <span>⚙️ 設定與範本</span>
+        </button>
+
+        <!-- 雙角色模式切換膠囊 -->
+        <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 w-full sm:w-auto justify-center">
+          <button type="button" id="mode-sub-btn" onclick="setRoleMode('substitute')"
+            class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-blue-900 text-white shadow-sm">
+            代課老師整理版
+          </button>
+          <button type="button" id="mode-leave-btn" onclick="setRoleMode('leave')"
+            class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900">
+            任課老師交接版
+          </button>
+        </div>
+      </div>
+
+      <!-- 桌機版：範本庫與備份管理（手機版收合至下方抽屜） -->
+      <div id="desktop-template-bar" class="hidden lg:flex flex-wrap items-center gap-1.5">
+        <select id="template-select" class="text-xs sm:text-sm border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 max-w-[165px]">
+          <option value="">-- 載入本機範本 --</option>
+        </select>
+        <button type="button" onclick="loadSelectedTemplate()" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300">
+          載入
+        </button>
+        <button type="button" onclick="openSaveTemplateModal()" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300">
+          存為範本
+        </button>
+        <button type="button" onclick="deleteSelectedTemplate()" title="刪除選取範本" class="px-2 py-1.5 text-xs font-semibold rounded-lg bg-white hover:bg-red-50 text-red-600 border border-slate-300">
+          刪範本
+        </button>
+        <button type="button" onclick="exportJSONBackup()" title="匯出 JSON 備份" class="px-2 py-1.5 text-xs font-medium rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-300">
+          備份
+        </button>
+        <label title="匯入 JSON 備份" class="px-2 py-1.5 text-xs font-medium rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-300 cursor-pointer">
+          還原
+          <input type="file" accept=".json" class="hidden" onchange="importJSONBackup(event)" />
+        </label>
+      </div>
+
+      <!-- 桌機版：三種一鍵匯出按鈕組（手機版移至預覽分頁顯示） -->
+      <div class="hidden lg:flex flex-wrap items-center gap-1.5">
+        <select id="export-scope" onchange="syncExportScope(this.value)" class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 bg-slate-50 font-semibold text-slate-700">
+          <option value="current">匯出：僅當日</option>
+          <option value="all">匯出：全部天數</option>
+        </select>
+        <button type="button" onclick="exportToWord()" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-blue-800 hover:bg-blue-900 text-white shadow-sm flex items-center gap-1">
+          <span>Word (.doc)</span>
+        </button>
+        <button type="button" onclick="triggerPrintPDF()" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-900 text-white shadow-sm flex items-center gap-1">
+          <span>列印 / PDF</span>
+        </button>
+        <button type="button" onclick="exportToPNG()" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-sm flex items-center gap-1">
+          <span>PNG 圖檔</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 手機版展開抽屜：範本庫、備份與顯示選項 -->
+    <div id="mobile-settings-drawer" class="hidden lg:hidden bg-slate-100 border-t border-slate-200 px-3 py-3 space-y-3">
+      <div class="space-y-1.5">
+        <div class="text-xs font-extrabold text-slate-700">📁 本機範本與備份</div>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <select id="mobile-template-select" onchange="document.getElementById('template-select').value = this.value"
+            class="flex-1 min-w-[140px] text-xs border border-slate-300 rounded-lg px-2.5 py-2 bg-white text-slate-700">
+            <option value="">-- 載入本機範本 --</option>
+          </select>
+          <button type="button" onclick="loadSelectedTemplate()" class="px-3 py-2 text-xs font-bold rounded-lg bg-white text-slate-800 border border-slate-300">載入</button>
+          <button type="button" onclick="openSaveTemplateModal()" class="px-3 py-2 text-xs font-bold rounded-lg bg-amber-50 text-amber-800 border border-amber-300">存為範本</button>
+          <button type="button" onclick="deleteSelectedTemplate()" class="px-2.5 py-2 text-xs font-bold rounded-lg bg-white text-red-600 border border-slate-300">刪除</button>
+        </div>
+        <div class="flex items-center gap-2 pt-1">
+          <button type="button" onclick="exportJSONBackup()" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-white text-slate-700 border border-slate-300">匯出備份</button>
+          <label class="px-3 py-1.5 text-xs font-bold rounded-lg bg-white text-slate-700 border border-slate-300 cursor-pointer">
+            還原備份
+            <input type="file" accept=".json" class="hidden" onchange="importJSONBackup(event)" />
+          </label>
+          <button type="button" onclick="resetAllData()" class="ml-auto px-3 py-1.5 text-xs font-bold rounded-lg bg-red-50 text-red-600 border border-red-200">清空全部</button>
+        </div>
+      </div>
+
+      <div class="space-y-1.5 pt-2 border-t border-slate-200">
+        <div class="text-xs font-extrabold text-slate-700">👁️ 輸出與顯示選項</div>
+        <div class="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-700">
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" id="mobile-opt-hide-teacher" class="rounded text-blue-800 w-4 h-4" onchange="updateGlobalOption('hideTeacherName', this.checked)" />
+            <span>隱藏老師姓名</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" id="mobile-opt-hide-empty" class="rounded text-blue-800 w-4 h-4" onchange="updateGlobalOption('hideEmptyPeriods', this.checked)" />
+            <span>隱藏無課務空堂</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" id="mobile-opt-page-break" class="rounded text-blue-800 w-4 h-4" onchange="updateGlobalOption('pageBreakPerDay', this.checked)" />
+            <span>一日一頁分頁</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 次工具列：多日排程頁籤 (1~5天) ＋ 桌機版全域顯示開關 -->
+    <div class="bg-slate-50 border-t border-slate-200 px-3 sm:px-5 py-2">
+      <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-2">
+        <!-- 1~5 天頁籤列（手機支援橫向滑動） -->
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full lg:w-auto pb-0.5 lg:pb-0" id="day-tabs-container">
+          <!-- 由 JS 動態渲染 -->
+        </div>
+
+        <!-- 桌機版全域顯示開關 -->
+        <div class="hidden lg:flex flex-wrap items-center gap-3 text-xs font-medium text-slate-700">
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" id="opt-hide-teacher" class="rounded text-blue-800 focus:ring-blue-700 w-4 h-4" onchange="updateGlobalOption('hideTeacherName', this.checked)" />
+            <span>匯出時隱藏老師姓名</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" id="opt-hide-empty" class="rounded text-blue-800 focus:ring-blue-700 w-4 h-4" onchange="updateGlobalOption('hideEmptyPeriods', this.checked)" />
+            <span>隱藏無課務空堂</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" id="opt-page-break" class="rounded text-blue-800 focus:ring-blue-700 w-4 h-4" onchange="updateGlobalOption('pageBreakPerDay', this.checked)" />
+            <span>一日一頁分頁</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== 主工作區：左側編輯 ＋ 右側即時預覽 ==================== -->
+  <main id="app-layout" class="flex-1 max-w-[1600px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 p-3 sm:p-5">
+
+    <!-- 左側編輯區 (7 欄) -->
+    <section id="editor-pane" class="no-print lg:col-span-7 space-y-4 pb-12">
+
+      <!-- 角色模式提示橫幅 -->
+      <div id="role-banner" class="rounded-xl px-4 py-2.5 bg-blue-50 border border-blue-200 text-xs sm:text-sm text-blue-900 flex items-center justify-between gap-2">
+        <span id="role-banner-text">目前為【代課老師整理版】：適合整併多則訊息與課表，同節任務集中呈現並預設隱藏任課老師姓名。</span>
+        <button type="button" onclick="resetAllData()" class="text-xs text-slate-500 hover:text-red-600 underline shrink-0">清空全部</button>
+      </div>
+
+      <!-- 卡片 1：當日基本資訊卡（每日獨立設定） -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <h2 class="text-sm sm:text-base font-extrabold text-slate-800 flex items-center gap-2">
+            <span class="w-2 h-5 rounded-full bg-blue-800 inline-block"></span>
+            <span>當日基本資訊</span>
+          </h2>
+          <div class="flex items-center gap-1.5">
+            <button type="button" id="copy-prev-day-btn" onclick="copyFromPreviousDay()"
+              class="px-4 py-2 rounded-xl text-sm sm:text-base font-extrabold bg-amber-500 hover:bg-amber-600 text-white shadow-md border-2 border-amber-600 transition-all">
+              複製前一天
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">代課日期</label>
+            <input type="date" id="field-date" oninput="updateDayField('date', this.value)"
+              class="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">學校名稱</label>
+            <input type="text" id="field-school" placeholder="例：台北國小" oninput="updateDayField('school', this.value)"
+              class="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">代課身分 / 班級</label>
+            <input type="text" id="field-class" placeholder="例：608 導師 / 自然科任" oninput="updateDayField('className', this.value)"
+              class="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">任課老師姓名</label>
+            <input type="text" id="field-teacher" placeholder="選填（可勾選隱藏）" oninput="updateDayField('teacherName', this.value)"
+              class="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 卡片 2：當日課表與應做事項（雙輸入模式＋片語快插＋Google文件式反白換色工具列） -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <h2 class="text-sm sm:text-base font-extrabold text-slate-800 flex items-center gap-2">
+            <span class="w-2 h-5 rounded-full bg-blue-800 inline-block"></span>
+            <span>當日課表與應做事項</span>
+          </h2>
+
+          <!-- 課表雙模式切換 -->
+          <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+            <button type="button" id="sched-mode-table" onclick="setScheduleInputMode('table')"
+              class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-blue-900 shadow-sm">
+              表格手動輸入
+            </button>
+            <button type="button" id="sched-mode-image" onclick="setScheduleInputMode('image')"
+              class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900">
+              上傳課表圖片
+            </button>
+          </div>
+        </div>
+
+        <!-- 課表圖片上傳區塊（切換至圖片模式或已有圖片時顯示） -->
+        <div id="schedule-image-box" class="hidden rounded-xl border border-blue-200 bg-blue-50/40 p-3 space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs font-bold text-blue-900">上傳課表照片／截圖（可直接嵌入交接單對照）：</span>
+            <div class="flex items-center gap-1.5">
+              <label class="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-800 hover:bg-blue-900 text-white cursor-pointer">
+                選擇課表圖片
+                <input type="file" accept="image/*" class="hidden" onchange="handleScheduleImageUpload(event)" />
+              </label>
+              <button type="button" id="btn-rot-sched" onclick="rotateScheduleImage()" class="hidden px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white border border-slate-300 hover:bg-slate-100">
+                旋轉90°
+              </button>
+              <button type="button" id="btn-del-sched" onclick="removeScheduleImage()" class="hidden px-2.5 py-1.5 rounded-lg text-xs font-bold bg-red-50 border border-red-200 text-red-600 hover:bg-red-100">
+                移除圖片
+              </button>
+            </div>
+          </div>
+          <div id="schedule-image-preview" class="hidden text-center bg-white border border-slate-200 rounded-lg p-2">
+            <img id="schedule-image-el" src="" class="max-h-48 mx-auto object-contain rounded" />
+          </div>
+        </div>
+
+        <!-- 快速輸入小幫手 ＋ 電腦版反白選取字體顏色工具列（手機版隱藏換色工具列） -->
+        <div class="rounded-xl bg-amber-50/80 border border-amber-200 p-3 space-y-2.5">
+          <!-- Google 文件式反白文字換色工具列（僅電腦版 lg 以上顯示） -->
+          <div class="hidden lg:flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-amber-200/80">
+            <span class="text-xs font-extrabold text-slate-800">🎨 反白文字設定顏色（如 Google 文件）：</span>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button type="button" onmousedown="event.preventDefault(); applyRichFormat('foreColor', '#000000')"
+                class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 text-black border border-slate-300 flex items-center gap-1 shadow-xs">
+                <span class="w-2.5 h-2.5 rounded-full bg-black inline-block"></span> 黑色(預設)
+              </button>
+              <button type="button" onmousedown="event.preventDefault(); applyRichFormat('foreColor', '#DC2626')"
+                class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white hover:bg-red-50 text-red-600 border border-red-300 flex items-center gap-1 shadow-xs">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-600 inline-block"></span> 紅色重點
+              </button>
+              <button type="button" onmousedown="event.preventDefault(); applyRichFormat('foreColor', '#1D4ED8')"
+                class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white hover:bg-blue-50 text-blue-700 border border-blue-300 flex items-center gap-1 shadow-xs">
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-700 inline-block"></span> 藍色標記
+              </button>
+              <button type="button" onmousedown="event.preventDefault(); applyRichFormat('bold')"
+                class="px-2.5 py-1 rounded-lg text-xs font-black bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 shadow-xs">
+                B 粗體
+              </button>
+              <button type="button" onmousedown="event.preventDefault(); applyRichFormat('removeFormat')"
+                class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300">
+                清除格式
+              </button>
+            </div>
+          </div>
+
+          <!-- 7 組常用片語快插 -->
+          <div class="space-y-1.5">
+            <span class="text-xs font-extrabold text-amber-900 block">⚡ 快速輸入小幫手（先點擊下方任一「應做事項」框，再點片語插入）：</span>
+            <div class="flex flex-wrap gap-1.5" id="quick-phrases-container">
+              <!-- 常用片語按鈕由 JS 生成 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 節次列編輯列表 -->
+        <div id="periods-list" class="space-y-3">
+          <!-- 由 JS 動態渲染每一節課卡片 -->
+        </div>
+
+        <div class="pt-1 flex flex-wrap items-center justify-between gap-2">
+          <button type="button" onclick="addPeriodRow()" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200">
+            ＋ 新增一節課／時段
+          </button>
+          <span class="text-[11px] text-slate-500">提示：直接在應做事項框內反白文字，即可點擊上方色票套用紅字或藍字。</span>
+        </div>
+      </div>
+
+      <!-- 卡片 3：當日學校活動區塊 -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+          <div>
+            <h2 class="text-sm sm:text-base font-extrabold text-slate-800 flex items-center gap-2">
+              <span class="w-2 h-5 rounded-full bg-amber-500 inline-block"></span>
+              <span>當日學校活動（選填）</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">例如：運動會預演、兒童節慶祝活動等說明文字即可，亦可附上相關流程圖或分組表。</p>
+          </div>
+          <button type="button" onclick="addActivityBlock()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-sm">
+            ＋ 新增學校活動
+          </button>
+        </div>
+
+        <div id="activities-list" class="space-y-4">
+          <!-- 由 JS 動態渲染 -->
+        </div>
+      </div>
+
+      <!-- 卡片 4：班級名單與座位表區塊（科任與導師分開說明） -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+          <h2 class="text-sm sm:text-base font-extrabold text-slate-800 flex items-center gap-2">
+            <span class="w-2 h-5 rounded-full bg-emerald-600 inline-block"></span>
+            <span>班級名單與座位表（選填，支援 0～多組）</span>
+          </h2>
+          <div class="flex gap-1.5">
+            <button type="button" onclick="addSeatingGroup('grid')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm">
+              ＋ 格子座位表生成
+            </button>
+            <button type="button" onclick="addSeatingGroup('image')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-700 hover:bg-slate-800 text-white shadow-sm">
+              ＋ 上傳座位表圖片
+            </button>
+          </div>
+        </div>
+
+        <!-- 科任與導師分開說明框 -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-emerald-50/60 border border-emerald-200 rounded-xl p-3 text-xs text-slate-700">
+          <div class="bg-white rounded-lg p-2.5 border border-emerald-100">
+            <div class="font-extrabold text-emerald-900 mb-1">📘 科任老師適用說明</div>
+            <p class="leading-relaxed">若當日需跑多個班級，可按右上角為不同班級（如 301、305）分別新增或上傳座位表圖片；若無需座位表可不新增。</p>
+          </div>
+          <div class="bg-white rounded-lg p-2.5 border border-emerald-100">
+            <div class="font-extrabold text-blue-900 mb-1">🏫 導師／整日代課適用說明</div>
+            <p class="leading-relaxed">建立或上傳該班 1 張座位表即可；點擊格子可循環標記「特生留意、行動不便、幹部、缺交」，方便點名與課堂管理。</p>
+          </div>
+        </div>
+
+        <div id="seating-groups-list" class="space-y-4">
+          <!-- 由 JS 動態渲染 -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 右側即時預覽區 (5 欄) -->
+    <section id="preview-pane" class="lg:col-span-5 space-y-3 pb-10 lg:pb-0">
+      <div class="no-print bg-white rounded-2xl border border-slate-200 shadow-sm px-3 sm:px-4 py-2.5 space-y-2.5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span class="text-xs sm:text-sm font-extrabold text-slate-800">A4 列印友善預覽</span>
+            <span class="lg:hidden text-[11px] text-slate-500">（可直接雙指放大檢視）</span>
+          </div>
+          <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+            <button type="button" id="prev-scope-current" onclick="setPreviewScope('current')"
+              class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-blue-900 shadow-sm">
+              僅看當日
+            </button>
+            <button type="button" id="prev-scope-all" onclick="setPreviewScope('all')"
+              class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900">
+              全部天數連看
+            </button>
+          </div>
+        </div>
+
+        <!-- 手機版專屬匯出操作列（於預覽分頁方便一鍵下載傳 LINE） -->
+        <div class="lg:hidden flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
+          <select id="mobile-export-scope" onchange="syncExportScope(this.value)" class="text-xs border border-slate-300 rounded-lg px-2 py-2 bg-slate-50 font-bold text-slate-700">
+            <option value="current">匯出：僅當日</option>
+            <option value="all">匯出：全部天數</option>
+          </select>
+          <button type="button" onclick="exportToWord()" class="flex-1 px-2.5 py-2 rounded-lg text-xs font-bold bg-blue-800 text-white shadow-xs">
+            Word (.doc)
+          </button>
+          <button type="button" onclick="triggerPrintPDF()" class="flex-1 px-2.5 py-2 rounded-lg text-xs font-bold bg-slate-800 text-white shadow-xs">
+            列印 / PDF
+          </button>
+          <button type="button" onclick="exportToPNG()" class="flex-1 px-2.5 py-2 rounded-lg text-xs font-bold bg-amber-600 text-white shadow-xs">
+            PNG 圖檔
+          </button>
+        </div>
+      </div>
+
+      <!-- A4 實際預覽渲染容器 -->
+      <div id="preview-render-container">
+        <!-- 由 JS 即時渲染 -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== 手機版底部固定「編輯 / 預覽」雙分頁切換列 ==================== -->
+  <nav class="no-print lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_12px_rgba(15,23,42,0.06)] px-3 py-2">
+    <div class="grid grid-cols-2 gap-2 max-w-md mx-auto">
+      <button type="button" id="mobile-nav-edit" onclick="switchMobileTab('edit')"
+        class="py-2.5 rounded-xl text-sm font-extrabold bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5 transition-all">
+        <span>✏️ 填寫內容</span>
+      </button>
+      <button type="button" id="mobile-nav-preview" onclick="switchMobileTab('preview')"
+        class="py-2.5 rounded-xl text-sm font-extrabold bg-slate-100 text-slate-700 border border-slate-300 flex items-center justify-center gap-1.5 transition-all">
+        <span>📄 預覽與匯出</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ==================== 儲存範本彈窗 ==================== -->
+  <div id="save-template-modal" class="no-print fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl space-y-4">
+      <h3 class="text-base font-extrabold text-slate-900">儲存為本機常用範本</h3>
+      <p class="text-xs text-slate-600">將目前的課表架構、班級設定與座位表儲存在此瀏覽器中，下次代課或請假一鍵載入即可修改進度。</p>
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1">範本名稱</label>
+        <input type="text" id="template-name-input" placeholder="例：新泰國小資源班（週二週三） / 608導師"
+          class="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+      </div>
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="closeSaveTemplateModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700">
+          取消
+        </button>
+        <button type="button" onclick="confirmSaveTemplate()" class="px-4 py-2 rounded-xl text-xs font-bold bg-blue-900 hover:bg-blue-950 text-white">
+          確認儲存
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 浮動提示 Toast ==================== -->
+  <div id="toast-box" class="no-print fixed bottom-20 lg:bottom-5 right-4 lg:right-5 z-50 hidden bg-slate-900 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-lg">
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. 全域狀態與預設資料結構
+    // =========================================================================
+    const STORAGE_KEY_DRAFT = 'sub_handover_draft_v2';
+    const STORAGE_KEY_TEMPLATES = 'sub_handover_templates_v2';
+
+    const QUICK_PHRASES = [
+      '完成習作p.__',
+      '發下學習單',
+      '安排考試',
+      '小考',
+      '到圖書館',
+      '禁帶玩具',
+      '遲到請打電話聯繫'
+    ];
+
+    const SEAT_STATUS_CYCLE = [
+      { key: 'none', label: '', border: '#94A3B8', bg: '#FFFFFF', text: '#000000' },
+      { key: 'special', label: '特生留意', border: '#DC2626', bg: '#FEF2F2', text: '#DC2626' },
+      { key: 'mobility', label: '行動不便', border: '#D97706', bg: '#FFFBEB', text: '#B45309' },
+      { key: 'leader', label: '幹部/收簿', border: '#1D4ED8', bg: '#EFF6FF', text: '#1D4ED8' },
+      { key: 'missing', label: '缺交/補寫', border: '#7C3AED', bg: '#F5F3FF', text: '#6D28D9' }
+    ];
+
+    let lastFocusedRichEditor = null;
+
+    function createDefaultPeriods() {
+      const names = ['早自習', '第一節', '第二節', '第三節', '第四節', '第五節', '第六節', '第七節'];
+      return names.map((name, idx) => ({
+        id: 'p_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2, 6),
+        timeSlot: name,
+        subject: '',
+        tasksHtml: '',
+        links: '',
+        images: [] // { id, dataUrl, caption }
+      }));
+    }
+
+    function createDefaultDay(dateStr = '') {
+      const today = dateStr || new Date().toISOString().split('T')[0];
+      return {
+        id: 'day_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        date: today,
+        school: '',
+        className: '',
+        teacherName: '',
+        scheduleInputMode: 'table', // 'table' | 'image'
+        scheduleImage: '',
+        periods: createDefaultPeriods(),
+        activities: [], // { id, title, descriptionHtml, rows: [{ id, item, descHtml }], images: [{ id, dataUrl, caption }] }
+        seatingGroups: [] // { id, title, mode: 'grid'|'image', cols, rows, rawRoster, seats: [{ num, name, status }], image, note }
+      };
+    }
+
+    let appState = {
+      roleMode: 'substitute', // 'substitute' (代課老師整理版) | 'leave' (任課老師交接版)
+      currentDayIndex: 0,
+      previewScope: 'current', // 'current' | 'all'
+      options: {
+        hideTeacherName: true,
+        hideEmptyPeriods: false,
+        pageBreakPerDay: true
+      },
+      days: [createDefaultDay()]
+    };
+
+    // =========================================================================
+    // 2. 初始化與 LocalStorage 讀寫
+    // =========================================================================
+    window.onload = function () {
+      try {
+        const savedDraft = localStorage.getItem(STORAGE_KEY_DRAFT);
+        if (savedDraft) {
+          const parsed = JSON.parse(savedDraft);
+          if (parsed && Array.isArray(parsed.days) && parsed.days.length > 0) {
+            appState = parsed;
+          }
+        }
+      } catch (e) {
+        console.warn('讀取草稿失敗，使用預設狀態', e);
+      }
+
+      renderQuickPhrases();
+      refreshTemplateDropdown();
+      syncAllUI();
+    };
+
+    function saveDraftToLocal() {
+      try {
+        localStorage.setItem(STORAGE_KEY_DRAFT, JSON.stringify(appState));
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        const ss = String(now.getSeconds()).padStart(2, '0');
+        document.getElementById('autosave-status').textContent = `已自動暫存 (${hh}:${mm}:${ss})`;
+      } catch (e) {
+        document.getElementById('autosave-status').textContent = '⚠ 圖片過多接近本機容量上限，建議匯出備份';
+      }
+    }
+
+    function showToast(msg) {
+      const box = document.getElementById('toast-box');
+      box.textContent = msg;
+      box.classList.remove('hidden');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => {
+        box.classList.add('hidden');
+      }, 2600);
+    }
+
+    // =========================================================================
+    // 3. 狀態存取、角色切換、全域選項與多日頁籤管理 (1~5天)
+    // =========================================================================
+    function getCurrentDay() {
+      if (appState.currentDayIndex < 0 || appState.currentDayIndex >= appState.days.length) {
+        appState.currentDayIndex = 0;
+      }
+      return appState.days[appState.currentDayIndex];
+    }
+
+    function getWeekdayLabel(dateStr) {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-').map(Number);
+      if (parts.length !== 3) return '';
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      const names = ['日', '一', '二', '三', '四', '五', '六'];
+      return names[d.getDay()] || '';
+    }
+
+    function formatShortDate(dateStr) {
+      if (!dateStr) return '未設日期';
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      return `${Number(parts[1])}/${Number(parts[2])}`;
+    }
+
+    function setRoleMode(mode) {
+      appState.roleMode = mode;
+      appState.options.hideTeacherName = (mode === 'substitute');
+      saveDraftToLocal();
+      syncAllUI();
+    }
+
+    function updateGlobalOption(key, val) {
+      appState.options[key] = val;
+      saveDraftToLocal();
+      syncGlobalOptionCheckboxes();
+      renderPreview();
+    }
+
+    function syncGlobalOptionCheckboxes() {
+      const hT = !!appState.options.hideTeacherName;
+      const hE = !!appState.options.hideEmptyPeriods;
+      const pB = !!appState.options.pageBreakPerDay;
+      document.getElementById('opt-hide-teacher').checked = hT;
+      document.getElementById('opt-hide-empty').checked = hE;
+      document.getElementById('opt-page-break').checked = pB;
+      const mT = document.getElementById('mobile-opt-hide-teacher');
+      const mE = document.getElementById('mobile-opt-hide-empty');
+      const mP = document.getElementById('mobile-opt-page-break');
+      if (mT) mT.checked = hT;
+      if (mE) mE.checked = hE;
+      if (mP) mP.checked = pB;
+    }
+
+    function syncExportScope(val) {
+      const deskSel = document.getElementById('export-scope');
+      const mobSel = document.getElementById('mobile-export-scope');
+      if (deskSel) deskSel.value = val;
+      if (mobSel) mobSel.value = val;
+    }
+
+    function toggleMobileDrawer() {
+      const drawer = document.getElementById('mobile-settings-drawer');
+      if (drawer) drawer.classList.toggle('hidden');
+    }
+
+    function switchMobileTab(tab) {
+      const body = document.body;
+      const btnEdit = document.getElementById('mobile-nav-edit');
+      const btnPrev = document.getElementById('mobile-nav-preview');
+      if (tab === 'preview') {
+        body.classList.remove('mobile-tab-edit');
+        body.classList.add('mobile-tab-preview');
+        btnPrev.className = 'py-2.5 rounded-xl text-sm font-extrabold bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5 transition-all';
+        btnEdit.className = 'py-2.5 rounded-xl text-sm font-extrabold bg-slate-100 text-slate-700 border border-slate-300 flex items-center justify-center gap-1.5 transition-all';
+        renderPreview();
+      } else {
+        body.classList.remove('mobile-tab-preview');
+        body.classList.add('mobile-tab-edit');
+        btnEdit.className = 'py-2.5 rounded-xl text-sm font-extrabold bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5 transition-all';
+        btnPrev.className = 'py-2.5 rounded-xl text-sm font-extrabold bg-slate-100 text-slate-700 border border-slate-300 flex items-center justify-center gap-1.5 transition-all';
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function setPreviewScope(scope) {
+      appState.previewScope = scope;
+      const btnCurr = document.getElementById('prev-scope-current');
+      const btnAll = document.getElementById('prev-scope-all');
+      if (scope === 'current') {
+        btnCurr.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-blue-900 shadow-sm';
+        btnAll.className = 'px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900';
+      } else {
+        btnAll.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-blue-900 shadow-sm';
+        btnCurr.className = 'px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900';
+      }
+      renderPreview();
+    }
+
+    function renderDayTabs() {
+      const container = document.getElementById('day-tabs-container');
+      container.innerHTML = '';
+
+      appState.days.forEach((day, idx) => {
+        const isActive = idx === appState.currentDayIndex;
+        const wk = getWeekdayLabel(day.date);
+        const label = `第${idx + 1}天 (${formatShortDate(day.date)}${wk ? ' 週' + wk : ''})`;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'inline-flex items-center shrink-0';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = isActive
+          ? 'px-3 py-1.5 rounded-xl text-xs sm:text-sm font-extrabold bg-blue-900 text-white shadow-sm whitespace-nowrap'
+          : 'px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 whitespace-nowrap';
+        btn.textContent = label;
+        btn.onclick = () => {
+          appState.currentDayIndex = idx;
+          syncAllUI();
+        };
+        wrapper.appendChild(btn);
+
+        if (appState.days.length > 1) {
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.title = '刪除此天';
+          delBtn.className = 'ml-0.5 px-1.5 py-1 text-xs font-bold text-slate-400 hover:text-red-600';
+          delBtn.textContent = '×';
+          delBtn.onclick = () => removeDay(idx);
+          wrapper.appendChild(delBtn);
+        }
+
+        container.appendChild(wrapper);
+      });
+
+      if (appState.days.length < 5) {
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 shrink-0 whitespace-nowrap';
+        addBtn.textContent = `＋ 新增天數 (${appState.days.length}/5)`;
+        addBtn.onclick = addNewDay;
+        container.appendChild(addBtn);
+      }
+    }
+
+    function addNewDay() {
+      if (appState.days.length >= 5) {
+        showToast('最多支援一次排定 5 天');
+        return;
+      }
+      const lastDay = appState.days[appState.days.length - 1];
+      let nextDateStr = '';
+      if (lastDay && lastDay.date) {
+        const parts = lastDay.date.split('-').map(Number);
+        const d = new Date(parts[0], parts[1] - 1, parts[2] + 1);
+        nextDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+      appState.days.push(createDefaultDay(nextDateStr));
+      appState.currentDayIndex = appState.days.length - 1;
+      saveDraftToLocal();
+      syncAllUI();
+      showToast(`已新增第 ${appState.days.length} 天`);
+    }
+
+    function removeDay(idx) {
+      if (appState.days.length <= 1) return;
+      appState.days.splice(idx, 1);
+      if (appState.currentDayIndex >= appState.days.length) {
+        appState.currentDayIndex = appState.days.length - 1;
+      }
+      saveDraftToLocal();
+      syncAllUI();
+      showToast('已刪除該日分頁');
+    }
+
+    function copyFromPreviousDay() {
+      if (appState.currentDayIndex === 0) {
+        showToast('目前已經是第 1 天，無前一天可複製');
+        return;
+      }
+      const prevDay = appState.days[appState.currentDayIndex - 1];
+      const currDay = getCurrentDay();
+      currDay.school = prevDay.school;
+      currDay.className = prevDay.className;
+      currDay.teacherName = prevDay.teacherName;
+      currDay.scheduleInputMode = prevDay.scheduleInputMode;
+      currDay.scheduleImage = prevDay.scheduleImage;
+      currDay.periods = JSON.parse(JSON.stringify(prevDay.periods));
+      currDay.seatingGroups = JSON.parse(JSON.stringify(prevDay.seatingGroups));
+      saveDraftToLocal();
+      syncAllUI();
+      showToast('已複製前一天的學校、班級、課表架構與座位表！');
+    }
+
+    function updateDayField(key, val) {
+      const day = getCurrentDay();
+      day[key] = val;
+      saveDraftToLocal();
+      if (key === 'date') {
+        renderDayTabs();
+      }
+      renderPreview();
+    }
+
+    // =========================================================================
+    // 4. 課表雙模式切換與課表圖片處理
+    // =========================================================================
+    function setScheduleInputMode(mode) {
+      const day = getCurrentDay();
+      day.scheduleInputMode = mode;
+      saveDraftToLocal();
+      syncScheduleImageUI();
+    }
+
+    function syncScheduleImageUI() {
+      const day = getCurrentDay();
+      const isImgMode = day.scheduleInputMode === 'image';
+      const btnTbl = document.getElementById('sched-mode-table');
+      const btnImg = document.getElementById('sched-mode-image');
+      const imgBox = document.getElementById('schedule-image-box');
+      const imgPrev = document.getElementById('schedule-image-preview');
+      const imgEl = document.getElementById('schedule-image-el');
+      const btnRot = document.getElementById('btn-rot-sched');
+      const btnDel = document.getElementById('btn-del-sched');
+
+      if (isImgMode) {
+        btnImg.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-blue-900 shadow-sm';
+        btnTbl.className = 'px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900';
+      } else {
+        btnTbl.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-blue-900 shadow-sm';
+        btnImg.className = 'px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900';
+      }
+
+      if (isImgMode || day.scheduleImage) {
+        imgBox.classList.remove('hidden');
+      } else {
+        imgBox.classList.add('hidden');
+      }
+
+      if (day.scheduleImage) {
+        imgPrev.classList.remove('hidden');
+        imgEl.src = day.scheduleImage;
+        btnRot.classList.remove('hidden');
+        btnDel.classList.remove('hidden');
+      } else {
+        imgPrev.classList.add('hidden');
+        imgEl.src = '';
+        btnRot.classList.add('hidden');
+        btnDel.classList.add('hidden');
+      }
+    }
+
+    function handleScheduleImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      compressImageFile(file, 1100, (dataUrl) => {
+        const day = getCurrentDay();
+        day.scheduleImage = dataUrl;
+        day.scheduleInputMode = 'image';
+        saveDraftToLocal();
+        syncScheduleImageUI();
+        renderPreview();
+      });
+      event.target.value = '';
+    }
+
+    function rotateScheduleImage() {
+      const day = getCurrentDay();
+      if (!day.scheduleImage) return;
+      rotateDataUrl90(day.scheduleImage, (rotated) => {
+        day.scheduleImage = rotated;
+        saveDraftToLocal();
+        syncScheduleImageUI();
+        renderPreview();
+      });
+    }
+
+    function removeScheduleImage() {
+      const day = getCurrentDay();
+      day.scheduleImage = '';
+      saveDraftToLocal();
+      syncScheduleImageUI();
+      renderPreview();
+    }
+
+    // =========================================================================
+    // 5. 常用片語快插與 Google 文件式反白選取字體換色工具
+    // =========================================================================
+    function renderQuickPhrases() {
+      const container = document.getElementById('quick-phrases-container');
+      container.innerHTML = '';
+      QUICK_PHRASES.forEach((phrase) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-800 hover:bg-blue-50 hover:border-blue-300 transition-colors shadow-2xs';
+        btn.textContent = phrase;
+        btn.onmousedown = (e) => {
+          e.preventDefault(); // 保持編輯框游標選區不遺失
+          insertPhraseToFocused(phrase);
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function applyRichFormat(command, value = null) {
+      let targetEl = lastFocusedRichEditor;
+      if (!targetEl || !document.body.contains(targetEl)) {
+        showToast('請先反白選取「應做事項」或活動說明中的文字，再點選顏色');
+        return;
+      }
+      targetEl.focus();
+      document.execCommand('styleWithCSS', false, true);
+      document.execCommand(command, false, value);
+      targetEl.dispatchEvent(new Event('input'));
+    }
+
+    function insertPhraseToFocused(phrase) {
+      let targetEl = lastFocusedRichEditor;
+      if (!targetEl || !document.body.contains(targetEl)) {
+        targetEl = document.querySelector('.rich-editor[data-period-task]');
+      }
+      if (!targetEl) return;
+
+      targetEl.focus();
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && targetEl.contains(sel.anchorNode)) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        const needsBreak = targetEl.innerText.trim().length > 0 && range.startOffset === 0;
+        const textNode = document.createTextNode((needsBreak ? '• ' : '• ') + phrase);
+        range.insertNode(textNode);
+        range.setStartAfter(textNode);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } else {
+        const prefix = targetEl.innerHTML.trim() ? '<br/>• ' : '• ';
+        targetEl.innerHTML += prefix + escapeHtml(phrase);
+      }
+      targetEl.dispatchEvent(new Event('input'));
+    }
+
+    // =========================================================================
+    // 6. 節次列（Periods）動態渲染與操作
+    // =========================================================================
+    function renderPeriodsEditor() {
+      const day = getCurrentDay();
+      const container = document.getElementById('periods-list');
+      container.innerHTML = '';
+
+      const isSub = appState.roleMode === 'substitute';
+      const subjectPlaceholder = isSub
+        ? '例：608 國語 / 301 自然(自然教室)'
+        : '例：國語 / 數學 / 閱讀(圖書館)';
+      const taskPlaceholder = isSub
+        ? '輸入當節應做事項、頁數、考試或注意事項（可反白文字套用紅／藍字）'
+        : '請代課老師協助完成之進度、考卷位置、作業或學生提醒（可反白套用紅／藍字）';
+
+      day.periods.forEach((p, idx) => {
+        const card = document.createElement('div');
+        card.className = 'rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-2.5';
+
+        // 第一排：時段、課表科目/班級、排序與刪除鈕
+        const topRow = document.createElement('div');
+        topRow.className = 'grid grid-cols-12 gap-2 items-center';
+        topRow.innerHTML = `
+          <div class="col-span-4 sm:col-span-3">
+            <input type="text" value="${escapeAttr(p.timeSlot)}" placeholder="時段"
+              oninput="updatePeriodField(${idx}, 'timeSlot', this.value)"
+              class="w-full text-xs sm:text-sm font-bold bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          </div>
+          <div class="col-span-5 sm:col-span-7">
+            <input type="text" value="${escapeAttr(p.subject)}" placeholder="${subjectPlaceholder}"
+              oninput="updatePeriodField(${idx}, 'subject', this.value)"
+              class="w-full text-xs sm:text-sm font-semibold bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          </div>
+          <div class="col-span-3 sm:col-span-2 flex items-center justify-end gap-1">
+            <button type="button" onclick="movePeriod(${idx}, -1)" title="上移" class="px-2 py-1 text-xs rounded bg-white border border-slate-300 hover:bg-slate-100">↑</button>
+            <button type="button" onclick="movePeriod(${idx}, 1)" title="下移" class="px-2 py-1 text-xs rounded bg-white border border-slate-300 hover:bg-slate-100">↓</button>
+            <button type="button" onclick="deletePeriod(${idx})" title="刪除此節" class="px-2 py-1 text-xs rounded bg-white border border-red-200 text-red-600 hover:bg-red-50">×</button>
+          </div>
+        `;
+        card.appendChild(topRow);
+
+        // 第二排：應做事項富文本編輯框（支援反白文字換色）
+        const taskEditor = document.createElement('div');
+        taskEditor.contentEditable = 'true';
+        taskEditor.setAttribute('data-period-task', idx);
+        taskEditor.setAttribute('data-placeholder', taskPlaceholder);
+        taskEditor.innerHTML = p.tasksHtml !== undefined ? p.tasksHtml : escapeHtml(p.tasks || '').replace(/\n/g, '<br/>');
+        taskEditor.className = 'rich-editor w-full text-xs sm:text-sm bg-white border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-700';
+        taskEditor.onfocus = () => { lastFocusedRichEditor = taskEditor; };
+        taskEditor.oninput = () => updatePeriodField(idx, 'tasksHtml', taskEditor.innerHTML);
+        card.appendChild(taskEditor);
+
+        // 第三排：連結貼上 ＋ 教材／學習單／電子書圖片上傳
+        const attachRow = document.createElement('div');
+        attachRow.className = 'flex flex-wrap items-center gap-2';
+        attachRow.innerHTML = `
+          <input type="text" value="${escapeAttr(p.links)}" placeholder="選填：貼上教學連結 / 影片 / Canva 網址"
+            oninput="updatePeriodField(${idx}, 'links', this.value)"
+            class="flex-1 min-w-[200px] text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+          <label class="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-blue-50 text-blue-800 border border-blue-300 cursor-pointer shrink-0">
+            ＋ 附教材圖 (${p.images.length})
+            <input type="file" accept="image/*" multiple class="hidden" onchange="handlePeriodImagesUpload(event, ${idx})" />
+          </label>
+        `;
+        card.appendChild(attachRow);
+
+        // 圖片縮圖與旋轉/圖說列
+        if (p.images.length > 0) {
+          const imgGrid = document.createElement('div');
+          imgGrid.className = 'grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1';
+          p.images.forEach((imgObj, imgIdx) => {
+            const item = document.createElement('div');
+            item.className = 'bg-white border border-slate-200 rounded-lg p-2 flex flex-col gap-1.5';
+            item.innerHTML = `
+              <img src="${imgObj.dataUrl}" class="max-h-32 w-full object-contain rounded bg-slate-50" />
+              <input type="text" value="${escapeAttr(imgObj.caption || '')}" placeholder="圖片說明（例：學習單正面）"
+                oninput="updatePeriodImageCaption(${idx}, ${imgIdx}, this.value)"
+                class="text-[11px] border border-slate-200 rounded px-2 py-1" />
+              <div class="flex justify-between gap-1">
+                <button type="button" onclick="rotatePeriodImage(${idx}, ${imgIdx})" class="px-2 py-0.5 text-[11px] rounded bg-slate-100 hover:bg-slate-200">旋轉90°</button>
+                <button type="button" onclick="removePeriodImage(${idx}, ${imgIdx})" class="px-2 py-0.5 text-[11px] rounded bg-red-50 text-red-600 hover:bg-red-100">刪除圖片</button>
+              </div>
+            `;
+            imgGrid.appendChild(item);
+          });
+          card.appendChild(imgGrid);
+        }
+
+        container.appendChild(card);
+      });
+    }
+
+    function updatePeriodField(idx, key, val) {
+      const day = getCurrentDay();
+      if (!day.periods[idx]) return;
+      day.periods[idx][key] = val;
+      saveDraftToLocal();
+      renderPreview();
+    }
+
+    function addPeriodRow() {
+      const day = getCurrentDay();
+      day.periods.push({
+        id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        timeSlot: '第八節',
+        subject: '',
+        tasksHtml: '',
+        links: '',
+        images: []
+      });
+      saveDraftToLocal();
+      renderPeriodsEditor();
+      renderPreview();
+    }
+
+    function deletePeriod(idx) {
+      const day = getCurrentDay();
+      if (day.periods.length <= 1) {
+        showToast('至少需保留一列時段');
+        return;
+      }
+      day.periods.splice(idx, 1);
+      saveDraftToLocal();
+      renderPeriodsEditor();
+      renderPreview();
+    }
+
+    function movePeriod(idx, dir) {
+      const day = getCurrentDay();
+      const target = idx + dir;
+      if (target < 0 || target >= day.periods.length) return;
+      const temp = day.periods[idx];
+      day.periods[idx] = day.periods[target];
+      day.periods[target] = temp;
+      saveDraftToLocal();
+      renderPeriodsEditor();
+      renderPreview();
+    }
+
+    function handlePeriodImagesUpload(event, pIdx) {
+      const files = Array.from(event.target.files || []);
+      if (files.length === 0) return;
+      const day = getCurrentDay();
+      let processed = 0;
+      files.forEach((file) => {
+        compressImageFile(file, 1000, (dataUrl) => {
+          day.periods[pIdx].images.push({
+            id: 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            dataUrl,
+            caption: ''
+          });
+          processed++;
+          if (processed === files.length) {
+            saveDraftToLocal();
+            renderPeriodsEditor();
+            renderPreview();
+          }
+        });
+      });
+      event.target.value = '';
+    }
+
+    function updatePeriodImageCaption(pIdx, imgIdx, val) {
+      const day = getCurrentDay();
+      day.periods[pIdx].images[imgIdx].caption = val;
+      saveDraftToLocal();
+      renderPreview();
+    }
+
+    function rotatePeriodImage(pIdx, imgIdx) {
+      const day = getCurrentDay();
+      const imgObj = day.periods[pIdx].images[imgIdx];
+      rotateDataUrl90(imgObj.dataUrl, (rotated) => {
+        imgObj.dataUrl = rotated;
+        saveDraftToLocal();
+        renderPeriodsEditor();
+        renderPreview();
+      });
+    }
+
+    function removePeriodImage(pIdx, imgIdx) {
+      const day = getCurrentDay();
+      day.periods[pIdx].images.splice(imgIdx, 1);
+      saveDraftToLocal();
+      renderPeriodsEditor();
+      renderPreview();
+    }
+
+    // =========================================================================
+    // 7. 當日學校活動區塊
+    // =========================================================================
+    function addActivityBlock() {
+      const day = getCurrentDay();
+      day.activities.push({
+        id: 'act_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        title: '當日學校活動',
+        descriptionHtml: '',
+        images: []
+      });
+      saveDraftToLocal();
+      renderActivitiesEditor();
+      renderPreview();
+    }
+
+    function renderActivitiesEditor() {
+      const day = getCurrentDay();
+      const container = document.getElementById('activities-list');
+      container.innerHTML = '';
+
+      if (day.activities.length === 0) {
+        container.innerHTML = `<div class="text-xs text-slate-400 text-center py-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">目前無當日學校活動（若有運動會預演、兒童節慶祝活動等可點右上角新增）</div>`;
+        return;
+      }
+
+      day.activities.forEach((act, aIdx) => {
+        const box = document.createElement('div');
+        box.className = 'rounded-xl border border-amber-200 bg-amber-50/30 p-3 space-y-2.5';
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center gap-2';
+        header.innerHTML = `
+          <input type="text" value="${escapeAttr(act.title)}" placeholder="活動標題（例：當日學校活動 - 運動會預演）"
+            oninput="updateActivityTitle(${aIdx}, this.value)"
+            class="flex-1 text-xs sm:text-sm font-extrabold bg-white border border-amber-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+          <button type="button" onclick="deleteActivityBlock(${aIdx})" class="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100">
+            刪除
+          </button>
+        `;
+        box.appendChild(header);
+
+        const descEditor = document.createElement('div');
+        descEditor.contentEditable = 'true';
+        descEditor.setAttribute('data-placeholder', '例如：運動會預演、兒童節慶祝活動等說明文字即可（可反白文字套用紅／藍字）');
+        descEditor.innerHTML = act.descriptionHtml || '';
+        descEditor.className = 'rich-editor w-full text-xs sm:text-sm bg-white border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500';
+        descEditor.onfocus = () => { lastFocusedRichEditor = descEditor; };
+        descEditor.oninput = () => {
+          getCurrentDay().activities[aIdx].descriptionHtml = descEditor.innerHTML;
+          saveDraftToLocal();
+          renderPreview();
+        };
+        box.appendChild(descEditor);
+
+        const footer = document.createElement('div');
+        footer.className = 'flex flex-wrap items-center justify-end gap-2 pt-0.5';
+        footer.innerHTML = `
+          <label class="px-2.5 py-1 text-xs font-bold rounded-lg bg-blue-800 hover:bg-blue-900 text-white cursor-pointer">
+            ＋ 附活動／流程圖片 (${act.images.length})
+            <input type="file" accept="image/*" multiple class="hidden" onchange="handleActivityImagesUpload(event, ${aIdx})" />
+          </label>
+        `;
+        box.appendChild(footer);
+
+        if (act.images.length > 0) {
+          const imgGrid = document.createElement('div');
+          imgGrid.className = 'grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1';
+          act.images.forEach((imgObj, imgIdx) => {
+            const item = document.createElement('div');
+            item.className = 'bg-white border border-slate-200 rounded-lg p-2 flex flex-col gap-1.5';
+            item.innerHTML = `
+              <img src="${imgObj.dataUrl}" class="max-h-36 w-full object-contain rounded bg-slate-50" />
+              <input type="text" value="${escapeAttr(imgObj.caption || '')}" placeholder="圖說（選填）"
+                oninput="updateActivityImageCaption(${aIdx}, ${imgIdx}, this.value)"
+                class="text-[11px] border border-slate-200 rounded px-2 py-1" />
+              <div class="flex justify-between gap-1">
+                <button type="button" onclick="rotateActivityImage(${aIdx}, ${imgIdx})" class="px-2 py-0.5 text-[11px] rounded bg-slate-100 hover:bg-slate-200">旋轉90°</button>
+                <button type="button" onclick="removeActivityImage(${aIdx}, ${imgIdx})" class="px-2 py-0.5 text-[11px] rounded bg-red-50 text-red-600 hover:bg-red-100">刪除圖片</button>
+              </div>
+            `;
+            imgGrid.appendChild(item);
+          });
+          box.appendChild(imgGrid);
+        }
+
+        container.appendChild(box);
+      });
+    }
+
+    function updateActivityTitle(aIdx, val) {
+      getCurrentDay().activities[aIdx].title = val;
+      saveDraftToLocal();
+      renderPreview();
+    }
+
+    function deleteActivityBlock(aIdx) {
+      getCurrentDay().activities.splice(aIdx, 1);
+      saveDraftToLocal();
+      renderActivitiesEditor();
+      renderPreview();
+    }
+
+    function addActivityRow(aIdx) {
+      getCurrentDay().activities[aIdx].rows.push({
+        id: 'r_' + Date.now(),
+        item: '',
+        desc: ''
+      });
+      saveDraftToLocal();
+      renderActivitiesEditor();
+      renderPreview();
+    }
+
+    function updateActivityRow(aIdx, rIdx, key, val) {
+      getCurrentDay().activities[aIdx].rows[rIdx][key] = val;
+      saveDraftToLocal();
+      renderPreview();
+    }
+
+    function deleteActivityRow(aIdx, rIdx) {
+      const act = getCurrentDay().activities[aIdx];
+      if (act.rows.length <= 1) return;
+      act.rows.splice(rIdx, 1);
+      saveDraftToLocal();
+      renderActivitiesEditor();
+      renderPreview();
+    }
+
+    function handleActivityImagesUpload(event, aIdx) {
+      const files = Array.from(event.target.files || []);
+      if (files.length === 0) return;
+      const act = getCurrentDay().activities[aIdx];
+      let done = 0;
+      files.forEach((f) => {
+        compressImageFile(f, 1100, (dataUrl) => {
+          act.images.push({
+            id: 'aimg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            dataUrl,
+            caption: ''
+          });
+          done++;
+          if (done === files.length) {
+            saveDraftToLocal();
+            renderActivitiesEditor();
+            renderPreview();
+          }
+        });
+      });
+      event.target.value = '';
+    }
+
+    function updateActivityImageCaption(aIdx, imgIdx, val) {
+      getCurrentDay().activities[aIdx].images[imgIdx].caption = val;
+      saveDraftToLocal();
+      renderPreview();
+    }
+
+    function rotateActivityImage(aIdx, imgIdx) {
+      const imgObj = getCurrentDay().activities[aIdx].images[imgIdx];
+      rotateDataUrl90(imgObj.dataUrl, (rotated) => {
+        imgObj.dataUrl = rotated;
+        saveDraftToLocal();
+        renderActivitiesEditor();
+        renderPreview();
+      });
+    }
+
+    function removeActivityImage(aIdx, imgIdx) {
+      getCurrentDay().activities[aIdx].images.splice(imgIdx, 1);
+      saveDraftToLocal();
+      renderActivitiesEditor();
+      renderPreview();
+    }
+
+    // =========================================================================
+    // 8. 班級名單與座位表區塊（支援格子生成＋特殊標記＆圖片上傳）
+    // =========================================================================
+    function addSeatingGroup(mode) {
+      const day = getCurrentDay();
+      const newGroup = {
+        id: 'sg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        title: day.className ? `${day.className} 座位表` : '班級座位表',
+        mode: mode, // 'grid' | 'image'
+        cols: 6,
+        rows: 5,
+        rawRoster: '',
+        seats: [],
+        image: '',
+        note: ''
+      };
+      if (mode === 'grid') {
+        newGroup.seats = Array.from({ length: 30 }, (_, i) => ({
+          num: String(i + 1).padStart(2, '0'),
+          name: '',
+          status: 'none'
+        }));
+      }
+      day.seatingGroups.push(newGroup);
+      saveDraftToLocal();
+      renderSeatingEditor();
+      renderPreview();
+    }
+
+    function renderSeatingEditor() {
+      const day = getCurrentDay();
+      const container = document.getElementById('seating-groups-list');
+      container.innerHTML = '';
+
+      if (day.seatingGroups.length === 0) {
+        container.innerHTML = `<div class="text-xs text-slate-400 text-center py-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">目前未新增座位表（可點上方按鈕新增格子座位表或上傳座位表圖片）</div>`;
+        return;
+      }
+
+      day.seatingGroups.forEach((sg, sgIdx) => {
+        const card = document.createElement('div');
+        card.className = 'rounded-xl border border-emerald-200 bg-emerald-50/20 p-3 space-y-2.5';
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center gap-2';
+        header.innerHTML = `
+          <input type="text" value="${escapeAttr(sg.title)}" placeholder="座位表標題（例：608 座位表）"
+            oninput="updateSeatingField(${sgIdx}, 'title', this.value)"
+            class="flex-1 text-xs sm:text-sm font-extrabold bg-white border border-emerald-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-600" />
+          <button type="button" onclick="deleteSeatingGroup(${sgIdx})" class="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100">
+            刪除
+          </button>
+        `;
+        card.appendChild(header);
+
+        if (sg.mode === 'image') {
+          const imgControls = document.createElement('div');
+          imgControls.className = 'space-y-2';
+          imgControls.innerHTML = `
+            <div class="flex flex-wrap items-center gap-2">
+              <input type="text" value="${escapeAttr(sg.note || '')}" placeholder="選填備註（例：講台在上方、特生坐前排）"
+                oninput="updateSeatingField(${sgIdx}, 'note', this.value)"
+                class="flex-1 text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5" />
+              <label class="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-900 text-white cursor-pointer">
+                ${sg.image ? '更換座位圖' : '選擇座位表圖片'}
+                <input type="file" accept="image/*" class="hidden" onchange="handleSeatingImageUpload(event, ${sgIdx})" />
+              </label>
+              ${sg.image ? `<button type="button" onclick="rotateSeatingImage(${sgIdx})" class="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-white border border-slate-300 hover:bg-slate-100">旋轉90°</button>` : ''}
+            </div>
+            ${sg.image ? `<div class="bg-white border border-slate-200 rounded-lg p-2 text-center"><img src="${sg.image}" class="max-h-44 mx-auto object-contain rounded" /></div>` : ''}
+          `;
+          card.appendChild(imgControls);
+        } else {
+          // 格子座位表模式
+          const gridConfig = document.createElement('div');
+          gridConfig.className = 'space-y-2';
+          gridConfig.innerHTML = `
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <label class="font-bold text-slate-700">直排(行)：
+                <input type="number" min="1" max="10" value="${sg.cols}" onchange="resizeSeatingGrid(${sgIdx}, this.value, ${sg.rows})"
+                  class="w-14 border border-slate-300 rounded px-2 py-1 bg-white text-center font-bold" />
+              </label>
+              <label class="font-bold text-slate-700">橫列(排)：
+                <input type="number" min="1" max="10" value="${sg.rows}" onchange="resizeSeatingGrid(${sgIdx}, ${sg.cols}, this.value)"
+                  class="w-14 border border-slate-300 rounded px-2 py-1 bg-white text-center font-bold" />
+              </label>
+              <button type="button" onclick="toggleRosterInput(${sgIdx})" class="px-2.5 py-1 rounded-lg bg-white border border-emerald-300 text-emerald-800 font-bold hover:bg-emerald-50">
+                貼上名單快速填入
+              </button>
+            </div>
+            <div id="roster-paste-box-${sgIdx}" class="hidden space-y-1.5 bg-white p-2.5 rounded-lg border border-emerald-200">
+              <textarea rows="3" placeholder="每行一位學生，例：&#10;01 王小明&#10;02 陳小華"
+                oninput="updateSeatingField(${sgIdx}, 'rawRoster', this.value)"
+                class="w-full text-xs border border-slate-300 rounded-lg p-2">${escapeHtml(sg.rawRoster || '')}</textarea>
+              <button type="button" onclick="applyRosterToSeats(${sgIdx})" class="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-700 text-white hover:bg-emerald-800">
+                套用名單至下方座位格
+              </button>
+            </div>
+            <div class="text-[11px] text-slate-600">點擊座位格右上角標籤可循環標記：<span class="text-red-600 font-bold">特生留意</span> → <span class="text-amber-700 font-bold">行動不便</span> → <span class="text-blue-700 font-bold">幹部/收簿</span> → <span class="text-purple-700 font-bold">缺交/補寫</span></div>
+          `;
+          card.appendChild(gridConfig);
+
+          const gridWrap = document.createElement('div');
+          gridWrap.className = 'grid gap-1.5 pt-1';
+          gridWrap.style.gridTemplateColumns = `repeat(${sg.cols}, minmax(0, 1fr))`;
+
+          const total = sg.cols * sg.rows;
+          for (let sIdx = 0; sIdx < total; sIdx++) {
+            if (!sg.seats[sIdx]) {
+              sg.seats[sIdx] = { num: '', name: '', status: 'none' };
+            }
+            const seat = sg.seats[sIdx];
+            const st = SEAT_STATUS_CYCLE.find((x) => x.key === seat.status) || SEAT_STATUS_CYCLE[0];
+
+            const cell = document.createElement('div');
+            cell.className = 'rounded-lg border p-1.5 flex flex-col gap-1 bg-white';
+            cell.style.borderColor = st.border;
+            cell.style.backgroundColor = st.bg;
+
+            cell.innerHTML = `
+              <div class="flex items-center justify-between gap-0.5">
+                <input type="text" value="${escapeAttr(seat.num)}" placeholder="號"
+                  oninput="updateSeatCell(${sgIdx}, ${sIdx}, 'num', this.value)"
+                  class="w-9 text-[11px] font-bold text-center border-b border-slate-200 bg-transparent focus:outline-none" />
+                <button type="button" onclick="cycleSeatStatus(${sgIdx}, ${sIdx})" title="點擊切換特殊標記"
+                  class="px-1 py-0.5 rounded text-[10px] font-bold border border-slate-200 bg-white/80 hover:bg-white">
+                  ${st.label || '標記'}
+                </button>
+              </div>
+              <input type="text" value="${escapeAttr(seat.name)}" placeholder="姓名"
+                oninput="updateSeatCell(${sgIdx}, ${sIdx}, 'name', this.value)"
+                class="w-full text-xs font-bold text-center bg-transparent focus:outline-none" />
+            `;
+            gridWrap.appendChild(cell);
+          }
+          card.appendChild(gridWrap);
+        }
+
+        container.appendChild(card);
+      });
+    }
+
+    function updateSeatingField(sgIdx, key, val) {
+      getCurrentDay().seatingGroups[sgIdx][key] = val;
+      saveDraftToLocal();
+      renderPreview();
+    }
+
+    function deleteSeatingGroup(sgIdx) {
+      getCurrentDay().seatingGroups.splice(sgIdx, 1);
+      saveDraftToLocal();
+      renderSeatingEditor();
+      renderPreview();
+    }
+
+    function resizeSeatingGrid(sgIdx, newCols, newRows) {
+      const sg = getCurrentDay().seatingGroups[sgIdx];
+      sg.cols = Math.max(1, Math.min(10, parseInt(newCols, 10) || 6));
+      sg.rows = Math.max(1, Math.min(10, parseInt(newRows, 10) || 5));
+      saveDraftToLocal();
+      renderSeatingEditor();
+      renderPreview();
+    }
+
+    function toggleRosterInput(sgIdx) {
+      const box = document.getElementById(`roster-paste-box-${sgIdx}`);
+      if (box) box.classList.toggle('hidden');
+    }
+
+    function applyRosterToSeats(sgIdx) {
+      const sg = getCurrentDay().seatingGroups[sgIdx];
+      const lines = (sg.rawRoster || '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean);
+      const total = sg.cols * sg.rows;
+      for (let i = 0; i < total; i++) {
+        if (lines[i]) {
+          const match = lines[i].match(/^(\d+)\s*(.*)$/);
+          if (match) {
+            sg.seats[i] = { num: match[1], name: match[2] || `${match[1]}號`, status: sg.seats[i]?.status || 'none' };
+          } else {
+            sg.seats[i] = { num: String(i + 1).padStart(2, '0'), name: lines[i], status: sg.seats[i]?.status || 'none' };
+          }
+        }
+      }
+      saveDraftToLocal();
+      renderSeatingEditor();
+      renderPreview();
+      showToast('已將名單填入座位格');
+    }
+
+    function updateSeatCell(sgIdx, sIdx, key, val) {
+      getCurrentDay().seatingGroups[sgIdx].seats[sIdx][key] = val;
+      saveDraftToLocal();
+      renderPreview();
+    }
+
+    function cycleSeatStatus(sgIdx, sIdx) {
+      const seat = getCurrentDay().seatingGroups[sgIdx].seats[sIdx];
+      const curIdx = SEAT_STATUS_CYCLE.findIndex((x) => x.key === seat.status);
+      const nextIdx = (curIdx + 1) % SEAT_STATUS_CYCLE.length;
+      seat.status = SEAT_STATUS_CYCLE[nextIdx].key;
+      saveDraftToLocal();
+      renderSeatingEditor();
+      renderPreview();
+    }
+
+    function handleSeatingImageUpload(event, sgIdx) {
+      const file = event.target.files[0];
+      if (!file) return;
+      compressImageFile(file, 1100, (dataUrl) => {
+        getCurrentDay().seatingGroups[sgIdx].image = dataUrl;
+        saveDraftToLocal();
+        renderSeatingEditor();
+        renderPreview();
+      });
+      event.target.value = '';
+    }
+
+    function rotateSeatingImage(sgIdx) {
+      const sg = getCurrentDay().seatingGroups[sgIdx];
+      if (!sg.image) return;
+      rotateDataUrl90(sg.image, (rotated) => {
+        sg.image = rotated;
+        saveDraftToLocal();
+        renderSeatingEditor();
+        renderPreview();
+      });
+    }
+
+    // =========================================================================
+    // 9. 即時預覽渲染引擎（白底／極淺灰表頭、黑字為主、支援富文本顏色）
+    // =========================================================================
+    function getSanitizedRichHTML(htmlStr) {
+      if (!htmlStr) return '';
+      const temp = document.createElement('div');
+      temp.innerHTML = htmlStr;
+      temp.querySelectorAll('script, style, iframe, object').forEach((el) => el.remove());
+      return temp.innerHTML;
+    }
+
+    function renderSingleDaySheetHTML(day, dayIdx, isLastDay) {
+      const wk = getWeekdayLabel(day.date);
+      const dateDisplay = day.date ? `${day.date.replace(/-/g, '/')}（${wk}）` : '';
+
+      const titlePrefix = [day.school, day.className].filter(Boolean).join(' ');
+      const docTypeLabel = appState.roleMode === 'substitute' ? '代課須知' : '任課老師交接單';
+      const mainTitle = `${titlePrefix ? titlePrefix + '｜' : ''}${dateDisplay ? dateDisplay + ' ' : ''}${docTypeLabel}`;
+
+      const showTeacher = !appState.options.hideTeacherName && day.teacherName && day.teacherName.trim() !== '';
+
+      // 過濾課表節次
+      const visiblePeriods = day.periods.filter((p) => {
+        if (!appState.options.hideEmptyPeriods) return true;
+        const plainTask = (p.tasksHtml || '').replace(/<[^>]*>/g, '').trim();
+        return (p.subject && p.subject.trim() !== '') || plainTask !== '' || p.images.length > 0;
+      });
+
+      let html = `<div class="a4-sheet ${appState.options.pageBreakPerDay && !isLastDay ? 'page-break-after' : ''}">`;
+
+      // 頂部標題列（淺灰底、黑字、高對比）
+      html += `
+        <div style="border-bottom: 2px solid #0F172A; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 6px;">
+          <div style="font-size: 17px; font-weight: 900; color: #000000; letter-spacing: 0.3px;">${escapeHtml(mainTitle)}</div>
+          ${showTeacher ? `<div style="font-size: 12.5px; font-weight: 700; color: #334155;">任課老師姓名：${escapeHtml(day.teacherName)}</div>` : ''}
+        </div>
+      `;
+
+      // 若有上傳課表截圖
+      if (day.scheduleImage) {
+        html += `
+          <div style="margin-bottom: 12px; text-align: center; border: 1px solid #CBD5E1; padding: 6px; background: #F8FAFC;">
+            <div style="font-size: 11.5px; font-weight: 700; color: #334155; margin-bottom: 4px;">【當日課表對照圖】</div>
+            <img src="${day.scheduleImage}" style="max-width: 100%; max-height: 260px; object-fit: contain; margin: 0 auto; display: block;" />
+          </div>
+        `;
+      }
+
+      // 主課表（精簡三欄：時段｜課表｜應做事項）
+      html += `
+        <table class="print-table" style="margin-bottom: 14px;">
+          <thead>
+            <tr>
+              <th style="width: 14%;">時段</th>
+              <th style="width: 22%;">課表</th>
+              <th style="width: 64%;">應做事項</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      if (visiblePeriods.length === 0) {
+        html += `<tr><td colspan="3" style="text-align:center; color:#64748B;">（尚無填寫課表內容）</td></tr>`;
+      } else {
+        visiblePeriods.forEach((p) => {
+          const taskHtml = getSanitizedRichHTML(p.tasksHtml);
+          const linkHtml = p.links && p.links.trim()
+            ? `<div style="margin-top:4px; font-size:11.5px; color:#1E40AF; word-break:break-all;">🔗 連結：${escapeHtml(p.links.trim())}</div>`
+            : '';
+
+          let imgsHtml = '';
+          if (p.images && p.images.length > 0) {
+            imgsHtml = `<div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px;">`;
+            p.images.forEach((imgObj) => {
+              imgsHtml += `
+                <div style="flex: 1 1 46%; max-width: ${p.images.length === 1 ? '85%' : '48%'}; border: 1px solid #CBD5E1; padding: 4px; text-align: center; background: #FFFFFF;">
+                  <img src="${imgObj.dataUrl}" style="max-width: 100%; max-height: 200px; object-fit: contain; display: block; margin: 0 auto;" />
+                  ${imgObj.caption ? `<div style="font-size: 11px; color: #334155; margin-top: 3px; font-weight: 600;">▲ ${escapeHtml(imgObj.caption)}</div>` : ''}
+                </div>
+              `;
+            });
+            imgsHtml += `</div>`;
+          }
+
+          html += `
+            <tr>
+              <td style="text-align: center; font-weight: 700; background-color: #F8FAFC;">${escapeHtml(p.timeSlot)}</td>
+              <td style="text-align: center; font-weight: 700;">${escapeHtml(p.subject)}</td>
+              <td>
+                <div>${taskHtml}</div>
+                ${linkHtml}
+                ${imgsHtml}
+              </td>
+            </tr>
+          `;
+        });
+      }
+
+      html += `</tbody></table>`;
+
+      // 當日學校活動區塊
+      day.activities.forEach((act) => {
+        const descHtml = getSanitizedRichHTML(act.descriptionHtml);
+        html += `
+          <div style="margin-top: 14px; margin-bottom: 12px;">
+            <table class="print-table">
+              <thead>
+                <tr>
+                  <th style="text-align: left; padding-left: 10px;">${escapeHtml(act.title || '當日學校活動')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>${descHtml || '<span style="color:#94A3B8;">（無活動文字說明）</span>'}</td>
+                </tr>
+              </tbody>
+            </table>
+        `;
+
+        if (act.images && act.images.length > 0) {
+          html += `<div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px;">`;
+          act.images.forEach((imgObj) => {
+            html += `
+              <div style="flex: 1 1 46%; max-width: ${act.images.length === 1 ? '85%' : '48%'}; border: 1px solid #CBD5E1; padding: 5px; text-align: center; background: #FFFFFF;">
+                <img src="${imgObj.dataUrl}" style="max-width: 100%; max-height: 230px; object-fit: contain; display: block; margin: 0 auto;" />
+                ${imgObj.caption ? `<div style="font-size: 11px; color: #334155; margin-top: 4px; font-weight: 700;">▲ ${escapeHtml(imgObj.caption)}</div>` : ''}
+              </div>
+            `;
+          });
+          html += `</div>`;
+        }
+        html += `</div>`;
+      });
+
+      // 班級名單與座位表區塊
+      day.seatingGroups.forEach((sg) => {
+        html += `
+          <div style="margin-top: 14px;">
+            <div style="font-size: 14px; font-weight: 900; color: #000000; border-left: 4px solid #334155; padding-left: 8px; margin-bottom: 6px;">
+              ${escapeHtml(sg.title || '班級座位表')}
+            </div>
+        `;
+
+        if (sg.mode === 'image') {
+          if (sg.note) {
+            html += `<div style="font-size: 12px; color: #334155; margin-bottom: 4px;">備註：${escapeHtml(sg.note)}</div>`;
+          }
+          if (sg.image) {
+            html += `
+              <div style="border: 1px solid #CBD5E1; padding: 6px; text-align: center;">
+                <img src="${sg.image}" style="max-width: 100%; max-height: 260px; object-fit: contain; margin: 0 auto; display: block;" />
+              </div>
+            `;
+          }
+        } else {
+          // 格子座位表輸出成標準 HTML 表格（確保 Word 與列印 100% 整齊）
+          html += `
+            <div style="text-align: center; font-size: 11.5px; font-weight: 700; background: #F1F5F9; border: 1px solid #334155; border-bottom: none; padding: 3px;">
+              【 講 台 / 黑 板 】
+            </div>
+            <table class="print-table" style="text-align: center;">
+              <tbody>
+          `;
+          for (let r = 0; r < sg.rows; r++) {
+            html += `<tr>`;
+            for (let c = 0; c < sg.cols; c++) {
+              const sIdx = r * sg.cols + c;
+              const seat = sg.seats[sIdx] || { num: '', name: '', status: 'none' };
+              const st = SEAT_STATUS_CYCLE.find((x) => x.key === seat.status) || SEAT_STATUS_CYCLE[0];
+              const isMarked = seat.status !== 'none';
+              html += `
+                <td style="padding: 5px 4px; background-color: ${isMarked ? st.bg : '#FFFFFF'}; color: ${isMarked ? st.text : '#000000'};">
+                  <div style="font-size: 10.5px; font-weight: 700;">${escapeHtml(seat.num)}</div>
+                  <div style="font-size: 12.5px; font-weight: 800;">${escapeHtml(seat.name)}</div>
+                  ${st.label ? `<div style="font-size: 10px; font-weight: 700; color: #DC2626;">[${st.label}]</div>` : ''}
+                </td>
+              `;
+            }
+            html += `</tr>`;
+          }
+          html += `</tbody></table>`;
+        }
+        html += `</div>`;
+      });
+
+      html += `</div>`;
+      return html;
+    }
+
+    function renderPreview() {
+      const container = document.getElementById('preview-render-container');
+      const targetDays =
+        appState.previewScope === 'all'
+          ? appState.days
+          : [appState.days[appState.currentDayIndex]];
+
+      let fullHtml = '';
+      targetDays.forEach((d, idx) => {
+        fullHtml += renderSingleDaySheetHTML(d, idx, idx === targetDays.length - 1);
+      });
+      container.innerHTML = fullHtml;
+    }
+
+    // =========================================================================
+    // 10. 整體 UI 同步函式
+    // =========================================================================
+    function syncAllUI() {
+      // 角色模式按鈕樣式
+      const btnSub = document.getElementById('mode-sub-btn');
+      const btnLeave = document.getElementById('mode-leave-btn');
+      const bannerText = document.getElementById('role-banner-text');
+
+      if (appState.roleMode === 'substitute') {
+        btnSub.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-blue-900 text-white shadow-sm';
+        btnLeave.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900';
+        bannerText.textContent = '目前為【代課老師整理版】：適合整併多則訊息與課表，同節任務集中呈現並預設隱藏任課老師姓名。';
+      } else {
+        btnLeave.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all bg-amber-600 text-white shadow-sm';
+        btnSub.className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900';
+        bannerText.textContent = '目前為【任課老師交接版】：適合交代各節課堂進度、教材連結、考卷位置與班級特殊學生提醒。';
+      }
+
+      // 全域選項核取方塊
+      syncGlobalOptionCheckboxes();
+
+      // 天數頁籤
+      renderDayTabs();
+
+      // 當日基本欄位
+      const day = getCurrentDay();
+      document.getElementById('field-date').value = day.date || '';
+      document.getElementById('field-school').value = day.school || '';
+      document.getElementById('field-class').value = day.className || '';
+      document.getElementById('field-teacher').value = day.teacherName || '';
+
+      const copyPrevBtn = document.getElementById('copy-prev-day-btn');
+      if (appState.currentDayIndex === 0) {
+        copyPrevBtn.classList.add('opacity-40', 'cursor-not-allowed');
+      } else {
+        copyPrevBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+      }
+
+      syncScheduleImageUI();
+      renderPeriodsEditor();
+      renderActivitiesEditor();
+      renderSeatingEditor();
+      renderPreview();
+    }
+
+    // =========================================================================
+    // 11. 三種匯出功能：Word (.doc)、友善列印/PDF、PNG 圖檔
+    // =========================================================================
+    function getExportTargetDays() {
+      const scope = document.getElementById('export-scope').value;
+      return scope === 'all' ? appState.days : [getCurrentDay()];
+    }
+
+    function exportToWord() {
+      const targetDays = getExportTargetDays();
+      let bodyContent = '';
+      targetDays.forEach((d, idx) => {
+        bodyContent += renderSingleDaySheetHTML(d, idx, idx === targetDays.length - 1);
+      });
+
+      // 將預覽區內的圖片尺寸限制在 Word A4 安全寬度內
+      const wordHtml = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office'
+              xmlns:w='urn:schemas-microsoft-com:office:word'
+              xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+          <meta charset="utf-8" />
+          <title>代課交接單</title>
+          <style>
+            @page { size: A4 portrait; margin: 1.2cm 1.4cm; }
+            body { font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; color: #000000; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 10pt; font-size: 10.5pt; }
+            th, td { border: 1pt solid #334155; padding: 5pt 6pt; vertical-align: top; }
+            th { background-color: #F1F5F9; font-weight: bold; text-align: center; }
+            .red-highlight { color: #DC2626; font-weight: bold; }
+            .page-break-after { page-break-after: always; }
+            img { max-width: 460px; height: auto; }
+          </style>
+        </head>
+        <body>${bodyContent}</body>
+        </html>
+      `;
+
+      const blob = new Blob(['\ufeff', wordHtml], { type: 'application/msword;charset=utf-8' });
+      const firstDay = targetDays[0];
+      const fileName = `${firstDay.className || '班級'}_${formatShortDate(firstDay.date).replace('/', '月') + '日'}_代課交接單.doc`;
+      triggerDownloadBlob(blob, fileName);
+      showToast('已匯出 Word 檔 (.doc)，可直接開啟編輯');
+    }
+
+    function triggerPrintPDF() {
+      const scope = document.getElementById('export-scope').value;
+      const prevScopeBackup = appState.previewScope;
+      if (scope === 'all' && appState.previewScope !== 'all') {
+        setPreviewScope('all');
+      } else if (scope === 'current' && appState.previewScope !== 'current') {
+        setPreviewScope('current');
+      }
+      setTimeout(() => {
+        window.print();
+        if (prevScopeBackup !== appState.previewScope) {
+          setPreviewScope(prevScopeBackup);
+        }
+      }, 150);
+    }
+
+    function exportToPNG() {
+      const scope = document.getElementById('export-scope').value;
+      const prevScopeBackup = appState.previewScope;
+      if (scope === 'all' && appState.previewScope !== 'all') {
+        setPreviewScope('all');
+      } else if (scope === 'current' && appState.previewScope !== 'current') {
+        setPreviewScope('current');
+      }
+
+      showToast('正在產生高解析度 PNG 圖檔，請稍候...');
+      setTimeout(() => {
+        const targetEl = document.getElementById('preview-render-container');
+        html2canvas(targetEl, {
+          scale: 2,
+          backgroundColor: '#FFFFFF',
+          useCORS: true
+        })
+          .then((canvas) => {
+            canvas.toBlob((blob) => {
+              const firstDay = getCurrentDay();
+              const fileName = `${firstDay.className || '班級'}_${formatShortDate(firstDay.date).replace('/', '月') + '日'}_代課交接單.png`;
+              triggerDownloadBlob(blob, fileName);
+              showToast('PNG 圖檔已下載，可直接傳送至 LINE！');
+              if (prevScopeBackup !== appState.previewScope) {
+                setPreviewScope(prevScopeBackup);
+              }
+            }, 'image/png');
+          })
+          .catch((err) => {
+            console.error(err);
+            showToast('匯出圖檔失敗，請改用列印存 PDF');
+          });
+      }, 200);
+    }
+
+    function triggerDownloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // =========================================================================
+    // 12. 本機範本庫、歷史快選與 JSON 備份還原
+    // =========================================================================
+    function getSavedTemplates() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY_TEMPLATES) || '{}');
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function refreshTemplateDropdown() {
+      const sel = document.getElementById('template-select');
+      const mobSel = document.getElementById('mobile-template-select');
+      const templates = getSavedTemplates();
+      const optionsHtml = '<option value="">-- 載入本機範本 --</option>' +
+        Object.keys(templates).map((name) => `<option value="${escapeAttr(name)}">${escapeHtml(name)}</option>`).join('');
+      if (sel) sel.innerHTML = optionsHtml;
+      if (mobSel) mobSel.innerHTML = optionsHtml;
+    }
+
+    function openSaveTemplateModal() {
+      const day = getCurrentDay();
+      const suggest = [day.school, day.className].filter(Boolean).join('-') || '我的常用課表範本';
+      document.getElementById('template-name-input').value = suggest;
+      const modal = document.getElementById('save-template-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeSaveTemplateModal() {
+      const modal = document.getElementById('save-template-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function confirmSaveTemplate() {
+      const name = document.getElementById('template-name-input').value.trim();
+      if (!name) {
+        showToast('請輸入範本名稱');
+        return;
+      }
+      const templates = getSavedTemplates();
+      templates[name] = JSON.parse(JSON.stringify(appState));
+      try {
+        localStorage.setItem(STORAGE_KEY_TEMPLATES, JSON.stringify(templates));
+        refreshTemplateDropdown();
+        document.getElementById('template-select').value = name;
+        closeSaveTemplateModal();
+        showToast(`已儲存範本「${name}」`);
+      } catch (e) {
+        showToast('儲存失敗：瀏覽器空間不足（建議減少高解析圖片）');
+      }
+    }
+
+    function loadSelectedTemplate() {
+      const name = document.getElementById('template-select').value;
+      if (!name) {
+        showToast('請先從下拉選單選擇一個範本');
+        return;
+      }
+      const templates = getSavedTemplates();
+      if (templates[name]) {
+        appState = JSON.parse(JSON.stringify(templates[name]));
+        saveDraftToLocal();
+        syncAllUI();
+        showToast(`已載入範本「${name}」`);
+      }
+    }
+
+    function deleteSelectedTemplate() {
+      const name = document.getElementById('template-select').value;
+      if (!name) return;
+      const templates = getSavedTemplates();
+      delete templates[name];
+      localStorage.setItem(STORAGE_KEY_TEMPLATES, JSON.stringify(templates));
+      refreshTemplateDropdown();
+      showToast(`已刪除範本「${name}」`);
+    }
+
+    function rememberHistory(category, val) {
+      if (!val || !val.trim()) return;
+      try {
+        const hist = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || '{"schools":[],"classes":[]}');
+        if (!hist[category].includes(val.trim())) {
+          hist[category].unshift(val.trim());
+          hist[category] = hist[category].slice(0, 15);
+          localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(hist));
+          refreshHistoryDatalists();
+        }
+      } catch (e) {}
+    }
+
+    function refreshHistoryDatalists() {
+      try {
+        const hist = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || '{"schools":[],"classes":[]}');
+        const sList = document.getElementById('school-history-list');
+        const cList = document.getElementById('class-history-list');
+        sList.innerHTML = (hist.schools || []).map((x) => `<option value="${escapeAttr(x)}"></option>`).join('');
+        cList.innerHTML = (hist.classes || []).map((x) => `<option value="${escapeAttr(x)}"></option>`).join('');
+      } catch (e) {}
+    }
+
+    function exportJSONBackup() {
+      const blob = new Blob([JSON.stringify(appState, null, 2)], { type: 'application/json' });
+      triggerDownloadBlob(blob, `代課交接備份_${new Date().toISOString().slice(0, 10)}.json`);
+      showToast('已匯出 JSON 備份檔');
+    }
+
+    function importJSONBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (parsed && Array.isArray(parsed.days)) {
+            appState = parsed;
+            saveDraftToLocal();
+            syncAllUI();
+            showToast('備份還原成功！');
+          } else {
+            showToast('檔案格式不符');
+          }
+        } catch (err) {
+          showToast('讀取 JSON 失敗');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    function resetAllData() {
+      appState = {
+        roleMode: appState.roleMode,
+        currentDayIndex: 0,
+        previewScope: 'current',
+        options: { ...appState.options },
+        days: [createDefaultDay()]
+      };
+      saveDraftToLocal();
+      syncAllUI();
+      showToast('已清空並重置為空白交接單');
+    }
+
+    // =========================================================================
+    // 13. 內建範例資料載入（方便體驗完整排版效果）
+    // =========================================================================
+    function loadSampleData() {
+      appState = {
+        roleMode: 'substitute',
+        currentDayIndex: 0,
+        previewScope: 'current',
+        options: {
+          hideTeacherName: true,
+          hideEmptyPeriods: false,
+          pageBreakPerDay: true
+        },
+        days: [
+          {
+            id: 'sample_day_1',
+            date: '2026-11-27',
+            school: '新泰國小',
+            className: '608 班級',
+            teacherName: '楊老師',
+            scheduleInputMode: 'table',
+            scheduleImage: '',
+            periods: [
+              {
+                id: 'sp1',
+                timeSlot: '早自修',
+                subject: '數習訂正／補寫',
+                tasks: '• [紅]11號[/紅]：幫忙收 EQ 手冊，昨天忘記繳交，請他一大早一定要交過去。\n• 數習缺交：15、7；補寫：4；數習錯誤率太高，請他們訂正。\n• [紅]4號有兩頁沒寫，叫他寫完 p.62-63，必須寫完才能下課[/紅]。\n• 班上禁止上課玩魔術方塊，上課前統一放在置物籃，下課才能玩。',
+                links: '',
+                images: []
+              },
+              { id: 'sp2', timeSlot: '第一節', subject: '社會', tasks: '', links: '', images: [] },
+              { id: 'sp3', timeSlot: '第二節', subject: '社會', tasks: '', links: '', images: [] },
+              {
+                id: 'sp4',
+                timeSlot: '第三節',
+                subject: '國語',
+                tasks: '• 安排考試（共兩張）。\n• 若大家國語都寫很快，請他們交換改成語單的部分（解答在桌面）。\n• [紅]考成語單不可以拿聯絡簿看，也不能寫代號！就是要寫國字[/紅]。',
+                links: '',
+                images: []
+              },
+              {
+                id: 'sp5',
+                timeSlot: '第四節',
+                subject: '數學',
+                tasks: '• 安排考試（共兩張）；數學考卷配分不對不用管。',
+                links: '',
+                images: []
+              },
+              {
+                id: 'sp6',
+                timeSlot: '第五節',
+                subject: '心泰閱讀趣',
+                tasks: '• 閱讀課到 R315 圖書館。\n• [紅]6號（特生）情緒不穩請多留意[/紅]。',
+                links: '',
+                images: []
+              },
+              {
+                id: 'sp7',
+                timeSlot: '第六節',
+                subject: '綜合活動',
+                tasks: '• 綜合課：學年運動會預演（詳細流程與棒次請見下方獨立表列）。\n• [紅]6號（特生）情緒不穩請多留意；4號腳不方便若不願意不用勉強[/紅]。',
+                links: '',
+                images: []
+              },
+              {
+                id: 'sp8',
+                timeSlot: '第七節',
+                subject: '綜合活動',
+                tasks: '• 依現場預演／教室練習狀況銜接安排。\n• 嘉年華表演（唱英語歌）：讓他們練習唱歌三次。',
+                links: 'https://canva.link/8uoqkucfgx1qlym',
+                images: []
+              }
+            ],
+            activities: [
+              {
+                id: 'sact1',
+                title: '二、學年運動會預演（第六節課）注意事項',
+                rows: [
+                  {
+                    id: 'sr1',
+                    item: '集合與隊伍',
+                    desc: '• 預演從 [紅]14:10[/紅] 開始，下課可慢慢往下移動（帶班級牌）。\n• 學年流程表 13:20 各班在操場後端跑道排兩列縱隊，我們班沒有按身高排，已跟他們說[紅]按照號碼[/紅]。'
+                  },
+                  {
+                    id: 'sr2',
+                    item: '大會舞與趣味競賽',
+                    desc: '• 練習大會舞後，派 [紅]4 位同學[/紅] 到體育器材室前拿道具（2根塑膠管、1張塑膠椅、1個水桶、1顆球）。\n• 趣味競賽每班 13 組，班上 24 人可安排部分同學玩兩次；[紅]6號[/紅]看有沒有同學願跟他一組，[紅]4號[/紅]腳不方便不勉強。'
+                  },
+                  {
+                    id: 'sr3',
+                    item: '大隊接力',
+                    desc: '• 下午 [紅]15:00[/紅] 練習大隊接力（608 為第 2 組／黃色號碼衣）。\n• 棒次順序：16、13、15、19、17、21、14、22、3、1、10、7、9、11、5、12\n• 候補女：20、24、23 ｜ 候補男：8、2、4'
+                  }
+                ],
+                images: []
+              }
+            ],
+            seatingGroups: [
+              {
+                id: 'sseat1',
+                title: '608 班級重點座號對照表',
+                mode: 'grid',
+                cols: 6,
+                rows: 4,
+                rawRoster: '01 1號\n02 2號\n03 3號\n04 4號(腳不便)\n05 5號\n06 6號(特生)\n07 7號(數習)\n08 8號\n09 9號\n10 10號\n11 11號(EQ)\n12 12號\n13 13號\n14 14號\n15 15號(數習)\n16 16號\n17 17號\n18 18號\n19 19號\n20 20號\n21 21號\n22 22號\n23 23號\n24 24號',
+                seats: [
+                  { num: '01', name: '1號', status: 'none' },
+                  { num: '02', name: '2號', status: 'none' },
+                  { num: '03', name: '3號', status: 'none' },
+                  { num: '04', name: '4號', status: 'mobility' },
+                  { num: '05', name: '5號', status: 'none' },
+                  { num: '06', name: '6號', status: 'special' },
+                  { num: '07', name: '7號', status: 'missing' },
+                  { num: '08', name: '8號', status: 'none' },
+                  { num: '09', name: '9號', status: 'none' },
+                  { num: '10', name: '10號', status: 'none' },
+                  { num: '11', name: '11號', status: 'leader' },
+                  { num: '12', name: '12號', status: 'none' },
+                  { num: '13', name: '13號', status: 'none' },
+                  { num: '14', name: '14號', status: 'none' },
+                  { num: '15', name: '15號', status: 'missing' },
+                  { num: '16', name: '16號', status: 'none' },
+                  { num: '17', name: '17號', status: 'none' },
+                  { num: '18', name: '18號', status: 'none' },
+                  { num: '19', name: '19號', status: 'none' },
+                  { num: '20', name: '20號', status: 'none' },
+                  { num: '21', name: '21號', status: 'none' },
+                  { num: '22', name: '22號', status: 'none' },
+                  { num: '23', name: '23號', status: 'none' },
+                  { num: '24', name: '24號', status: 'none' }
+                ],
+                image: '',
+                note: ''
+              }
+            ]
+          }
+        ]
+      };
+      saveDraftToLocal();
+      syncAllUI();
+      showToast('已載入 608 班級代課範例資料！');
+    }
+
+    // =========================================================================
+    // 14. 圖片壓縮、旋轉與字串轉義工具函式
+    // =========================================================================
+    function compressImageFile(file, maxDim, callback) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          callback(canvas.toDataURL('image/jpeg', 0.85));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function rotateDataUrl90(dataUrl, callback) {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.height;
+        canvas.height = img.width;
+        const ctx = canvas.getContext('2d');
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((90 * Math.PI) / 180);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+        callback(canvas.toDataURL('image/jpeg', 0.88));
+      };
+      img.src = dataUrl;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function escapeAttr(str) {
+      return escapeHtml(str).replace(/'/g, '&#39;');
+    }
+  </script>
+</body>
+</html>
